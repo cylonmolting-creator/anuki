@@ -250,7 +250,7 @@
       },
       "lifecycle": {
         "status": "active",
-        "lastActivity": "2026-04-13T13:13:59.727Z",
+        "lastActivity": "2026-04-14T13:43:37.836Z",
         "pausedAt": null,
         "wakeCount": 0
       }
@@ -278,7 +278,8 @@
           "propagate-rules",
           "audit-rules",
           "testing",
-          "verification"
+          "verification",
+          "writing"
         ],
         "skills": [
           {
@@ -328,6 +329,12 @@
             "name": "verification",
             "category": "qa",
             "description": "verification capability (auto-registered from soul files)"
+          },
+          {
+            "id": "skill-writing",
+            "name": "writing",
+            "category": "language",
+            "description": "writing capability (auto-registered from soul files)"
           }
         ],
         "description": "UTU AI agent"
