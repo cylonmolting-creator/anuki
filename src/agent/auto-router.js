@@ -25,31 +25,32 @@ class AutoRouter {
     // Core agent routing (ENKI/UTU) is handled by coreAgentPatterns below.
     this.skillPatterns = {};
 
-    // Agent creation / rule patterns — route to ENKI or UTU
+    // Agent creation / rule patterns — route to ENKI or UTU.
+    // Intent detection is tolerant of intervening adjectives ("new coding agent",
+    // "little helper agent") — match verb + eventual "agent" within reasonable
+    // window. Same for rules.
     this.coreAgentPatterns = {
       'enki': [
-        /create\s+(a\s+|an\s+|new\s+)?agent/i,
-        /build\s+(a\s+|an\s+|me\s+)?agent/i,
-        /make\s+(a\s+|an\s+|me\s+)?agent/i,
-        /i\s+(want|need)\s+(a\s+|an\s+)?agent/i,
-        /new\s+agent/i,
-        /agent\s+that\s+(can|does|handles|manages)/i,
-        /edit\s+(the\s+)?agent/i,
-        /modify\s+(the\s+)?agent/i,
-        /delete\s+(the\s+)?agent/i,
-        /remove\s+(the\s+)?agent/i,
+        // Verb-based: create/build/make/spawn/setup/need/want + ... + agent
+        /(create|build|make|spawn|set\s*up|setup|need|want|add)\b[^.?!]{0,40}?\bagent/i,
+        // "i want/need (a/an/to create) agent"
+        /i\s+(want|need|would\s+like|wanna)\b[^.?!]{0,30}?\bagent/i,
+        // "new agent" with optional adjective before it: "new X agent"
+        /new\b[^.?!]{0,20}?\bagent/i,
+        // Lifecycle verbs
+        /(edit|modify|change|update|delete|remove|rename|fix)\s+(the\s+|my\s+|an?\s+)?\w*\s*agent/i,
+        // "agent that does / can / handles"
+        /agent\s+(that|which|who)\s+(can|does|handles|manages|writes|reads|creates)/i,
       ],
       'utu': [
-        /add\s+(a\s+)?rule/i,
-        /create\s+(a\s+)?rule/i,
-        /new\s+rule/i,
-        /write\s+(a\s+)?rule/i,
-        /change\s+(the\s+)?rule/i,
-        /modify\s+(the\s+)?rule/i,
-        /delete\s+(the\s+)?rule/i,
-        /remove\s+(the\s+)?rule/i,
-        /what\s+rules/i,
+        /(add|create|write|make|need|want|new)\b[^.?!]{0,40}?\brule/i,
+        /i\s+(want|need|would\s+like|wanna)\b[^.?!]{0,30}?\brule/i,
+        /(edit|modify|change|update|delete|remove)\s+(the\s+|a\s+|an?\s+)?\w*\s*rule/i,
+        /new\b[^.?!]{0,20}?\brule/i,
+        /rule\s+(about|for|that|which)/i,
+        /what\s+(rules|governance)/i,
         /list\s+rules/i,
+        /governance\s+rule/i,
       ]
     };
 
@@ -134,21 +135,17 @@ class AutoRouter {
    * @private
    */
   _checkExplicitMention(msg) {
-    // ONLY match explicit routing commands like:
-    // - "ask math: what is 2+2"
-    // - "ask math 5*10"
-    // - "ask math 2+2"
-    // DO NOT match when user is TALKING ABOUT an agent:
-    // - "math agent is not responding" — NOT a routing command
-    // - "are you communicating with the math agent" — NOT a routing command
+    // Match explicit routing commands and direct addressing:
+    //   "ask math: what is 2+2"      → routing command
+    //   "ask math 5*10"              → routing command
+    //   "math, what is 2+2"          → direct address (agent name + comma)
+    //   "hey math, ..."              → direct address with greeting
+    //   "@math ..." / "/math ..."    → prefix mention
+    //
+    // DO NOT match when user is just talking ABOUT an agent:
+    //   "math agent is not responding"              → NOT routing
+    //   "are you communicating with the math agent" → NOT routing
     const agents = this.agentManager.listAgents();
-
-    // Routing command patterns (English)
-    const routingVerbs = [
-      /^ask /,     // ask math ...
-      / ask$/,     // ... math ask
-      /ask:/,      // ask math:
-    ];
 
     for (const agent of agents) {
       const name = agent.name.toLowerCase();
@@ -156,17 +153,29 @@ class AutoRouter {
       const allNames = [name, ...aliases];
 
       for (const alias of allNames) {
-        // Check explicit routing verbs AFTER agent name
-        for (const verbPattern of routingVerbs) {
-          // Build combined check: message must contain alias AND routing verb
-          const aliasIdx = msg.indexOf(alias);
-          if (aliasIdx === -1) continue;
+        // Escape alias for regex
+        const aliasRe = alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-          // The routing verb should be near the alias (within 20 chars)
-          const nearbyText = msg.substring(aliasIdx, aliasIdx + alias.length + 20);
-          if (verbPattern.test(nearbyText)) {
-            return { agentId: agent.id, keyword: alias };
-          }
+        // Pattern 1: "ask <alias>" at start of message or after ". "
+        //   "ask math what is 2+2", "ask math: ...", "ask math, ..."
+        if (new RegExp(`(^|[.!?]\\s+)ask\\s+${aliasRe}\\b`, 'i').test(msg)) {
+          return { agentId: agent.id, keyword: alias };
+        }
+
+        // Pattern 2: "@<alias>" or "/<alias>" prefix (chat-style mentions)
+        if (new RegExp(`(^|\\s)[@/]${aliasRe}\\b`, 'i').test(msg)) {
+          return { agentId: agent.id, keyword: alias };
+        }
+
+        // Pattern 3: Direct address — alias at start followed by comma, colon, or imperative
+        //   "ENKI, create me..." / "utu: add rule..." / "Hey ENKI ..."
+        if (new RegExp(`^(hey\\s+|ok\\s+|hi\\s+)?${aliasRe}[,:]`, 'i').test(msg)) {
+          return { agentId: agent.id, keyword: alias };
+        }
+
+        // Pattern 4: "tell <alias> ..." / "send to <alias> ..." routing verbs
+        if (new RegExp(`\\b(tell|send\\s+to|ping|route\\s+to|forward\\s+to)\\s+${aliasRe}\\b`, 'i').test(msg)) {
+          return { agentId: agent.id, keyword: alias };
         }
       }
     }
