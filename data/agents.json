@@ -1,0 +1,343 @@
+{
+  "agents": [
+    {
+      "id": "enki",
+      "name": "ENKI",
+      "description": "Agent Architect — creates, edits, and manages agents",
+      "port": null,
+      "model": "claude-sonnet-4-20250514",
+      "channels": [
+        "webchat"
+      ],
+      "running": true,
+      "tags": [
+        "architect",
+        "agent-factory"
+      ],
+      "createdAt": "2026-04-13T00:00:00.000Z",
+      "capabilities": {
+        "skillsSimple": [
+          "communication",
+          "create-agents",
+          "edit-agents",
+          "delete-agents",
+          "validate-agents",
+          "design-identity",
+          "analysis",
+          "debugging",
+          "testing",
+          "research",
+          "verification",
+          "refactoring",
+          "monitoring",
+          "multi-agent",
+          "crypto"
+        ],
+        "skills": [
+          {
+            "id": "skill-communication",
+            "name": "communication",
+            "category": "language",
+            "description": "communication capability (auto-registered from soul files)"
+          },
+          {
+            "id": "skill-create-agents",
+            "name": "create-agents",
+            "category": "system",
+            "description": "create-agents capability (auto-registered from soul files)"
+          },
+          {
+            "id": "skill-edit-agents",
+            "name": "edit-agents",
+            "category": "system",
+            "description": "edit-agents capability (auto-registered from soul files)"
+          },
+          {
+            "id": "skill-delete-agents",
+            "name": "delete-agents",
+            "category": "system",
+            "description": "delete-agents capability (auto-registered from soul files)"
+          },
+          {
+            "id": "skill-validate-agents",
+            "name": "validate-agents",
+            "category": "system",
+            "description": "validate-agents capability (auto-registered from soul files)"
+          },
+          {
+            "id": "skill-design-identity",
+            "name": "design-identity",
+            "category": "general",
+            "description": "design-identity capability (auto-registered from soul files)"
+          },
+          {
+            "id": "skill-analysis",
+            "name": "analysis",
+            "category": "analysis",
+            "description": "analysis capability (auto-registered from soul files)"
+          },
+          {
+            "id": "skill-debugging",
+            "name": "debugging",
+            "category": "code",
+            "description": "debugging capability (auto-registered from soul files)"
+          },
+          {
+            "id": "skill-testing",
+            "name": "testing",
+            "category": "code",
+            "description": "testing capability (auto-registered from soul files)"
+          },
+          {
+            "id": "skill-research",
+            "name": "research",
+            "category": "analysis",
+            "description": "research capability (auto-registered from soul files)"
+          },
+          {
+            "id": "skill-verification",
+            "name": "verification",
+            "category": "qa",
+            "description": "verification capability (auto-registered from soul files)"
+          },
+          {
+            "id": "skill-refactoring",
+            "name": "refactoring",
+            "category": "code",
+            "description": "refactoring capability (auto-registered from soul files)"
+          },
+          {
+            "id": "skill-monitoring",
+            "name": "monitoring",
+            "category": "qa",
+            "description": "monitoring capability (auto-registered from soul files)"
+          },
+          {
+            "id": "skill-multi-agent",
+            "name": "multi-agent",
+            "category": "system",
+            "description": "multi-agent capability (auto-registered from soul files)"
+          },
+          {
+            "id": "skill-crypto",
+            "name": "crypto",
+            "category": "crypto",
+            "description": "crypto capability (auto-registered from soul files)"
+          }
+        ],
+        "description": "ENKI AI agent"
+      },
+      "lifecycle": {
+        "status": "active",
+        "lastActivity": "2026-04-13T12:00:10.978Z",
+        "pausedAt": null,
+        "wakeCount": 0
+      }
+    },
+    {
+      "id": "protos",
+      "name": "PROTOS",
+      "description": "Prompt Architect — user bridge, routes requests, crafts prompts",
+      "port": null,
+      "model": "claude-sonnet-4-20250514",
+      "channels": [
+        "webchat"
+      ],
+      "running": true,
+      "isDefault": true,
+      "tags": [
+        "prompt-engineer",
+        "no-code"
+      ],
+      "createdAt": "2026-04-13T00:00:00.000Z",
+      "capabilities": {
+        "skillsSimple": [
+          "writing",
+          "communication",
+          "analysis",
+          "code-writing",
+          "research",
+          "greet-and-guide",
+          "route-requests",
+          "write-prompts",
+          "explain-agents",
+          "bridge-communication",
+          "optimization",
+          "multi-agent",
+          "system-health"
+        ],
+        "skills": [
+          {
+            "id": "skill-writing",
+            "name": "writing",
+            "category": "language",
+            "description": "writing capability (auto-registered from soul files)"
+          },
+          {
+            "id": "skill-communication",
+            "name": "communication",
+            "category": "language",
+            "description": "communication capability (auto-registered from soul files)"
+          },
+          {
+            "id": "skill-analysis",
+            "name": "analysis",
+            "category": "analysis",
+            "description": "analysis capability (auto-registered from soul files)"
+          },
+          {
+            "id": "skill-code-writing",
+            "name": "code-writing",
+            "category": "code",
+            "description": "code-writing capability (auto-registered from soul files)"
+          },
+          {
+            "id": "skill-research",
+            "name": "research",
+            "category": "analysis",
+            "description": "research capability (auto-registered from soul files)"
+          },
+          {
+            "id": "skill-greet-and-guide",
+            "name": "greet-and-guide",
+            "category": "general",
+            "description": "greet-and-guide capability (auto-registered from soul files)"
+          },
+          {
+            "id": "skill-route-requests",
+            "name": "route-requests",
+            "category": "general",
+            "description": "route-requests capability (auto-registered from soul files)"
+          },
+          {
+            "id": "skill-write-prompts",
+            "name": "write-prompts",
+            "category": "general",
+            "description": "write-prompts capability (auto-registered from soul files)"
+          },
+          {
+            "id": "skill-explain-agents",
+            "name": "explain-agents",
+            "category": "system",
+            "description": "explain-agents capability (auto-registered from soul files)"
+          },
+          {
+            "id": "skill-bridge-communication",
+            "name": "bridge-communication",
+            "category": "language",
+            "description": "bridge-communication capability (auto-registered from soul files)"
+          },
+          {
+            "id": "skill-optimization",
+            "name": "optimization",
+            "category": "mathematics",
+            "description": "optimization capability (auto-registered from soul files)"
+          },
+          {
+            "id": "skill-multi-agent",
+            "name": "multi-agent",
+            "category": "system",
+            "description": "multi-agent capability (auto-registered from soul files)"
+          },
+          {
+            "id": "skill-system-health",
+            "name": "system-health",
+            "category": "system",
+            "description": "system-health capability (auto-registered from soul files)"
+          }
+        ],
+        "description": "PROTOS AI agent"
+      },
+      "lifecycle": {
+        "status": "active",
+        "lastActivity": "2026-04-13T13:13:59.727Z",
+        "pausedAt": null,
+        "wakeCount": 0
+      }
+    },
+    {
+      "id": "utu",
+      "name": "UTU",
+      "description": "Rule Guardian — creates, edits, and enforces rules",
+      "port": null,
+      "model": "claude-sonnet-4-20250514",
+      "channels": [
+        "webchat"
+      ],
+      "running": true,
+      "tags": [
+        "rule-keeper"
+      ],
+      "createdAt": "2026-04-13T00:00:00.000Z",
+      "capabilities": {
+        "skillsSimple": [
+          "communication",
+          "create-rules",
+          "edit-rules",
+          "delete-rules",
+          "propagate-rules",
+          "audit-rules",
+          "testing",
+          "verification"
+        ],
+        "skills": [
+          {
+            "id": "skill-communication",
+            "name": "communication",
+            "category": "language",
+            "description": "communication capability (auto-registered from soul files)"
+          },
+          {
+            "id": "skill-create-rules",
+            "name": "create-rules",
+            "category": "general",
+            "description": "create-rules capability (auto-registered from soul files)"
+          },
+          {
+            "id": "skill-edit-rules",
+            "name": "edit-rules",
+            "category": "general",
+            "description": "edit-rules capability (auto-registered from soul files)"
+          },
+          {
+            "id": "skill-delete-rules",
+            "name": "delete-rules",
+            "category": "general",
+            "description": "delete-rules capability (auto-registered from soul files)"
+          },
+          {
+            "id": "skill-propagate-rules",
+            "name": "propagate-rules",
+            "category": "general",
+            "description": "propagate-rules capability (auto-registered from soul files)"
+          },
+          {
+            "id": "skill-audit-rules",
+            "name": "audit-rules",
+            "category": "general",
+            "description": "audit-rules capability (auto-registered from soul files)"
+          },
+          {
+            "id": "skill-testing",
+            "name": "testing",
+            "category": "code",
+            "description": "testing capability (auto-registered from soul files)"
+          },
+          {
+            "id": "skill-verification",
+            "name": "verification",
+            "category": "qa",
+            "description": "verification capability (auto-registered from soul files)"
+          }
+        ],
+        "description": "UTU AI agent"
+      },
+      "lifecycle": {
+        "status": "active",
+        "lastActivity": "2026-04-13T12:00:18.745Z",
+        "pausedAt": null,
+        "wakeCount": 0
+      }
+    }
+  ]
+}

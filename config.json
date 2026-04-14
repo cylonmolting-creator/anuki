@@ -1,0 +1,37 @@
+{
+  "port": 3000,
+  "gateway": {
+    "http": { "enabled": true },
+    "websocket": { "enabled": true },
+    "health": { "enabled": true }
+  },
+  "agent": {
+    "model": "claude-sonnet-4-20250514",
+    "agentic": true,
+    "claudePath": "claude"
+  },
+  "channels": {
+    "webchat": { "enabled": true }
+  },
+  "features": {
+    "webhooks": true,
+    "agentManager": true
+  },
+  "memory": {
+    "decayRate": 0.05,
+    "reflectionHour": 3,
+    "decayHour": 4
+  },
+  "security": {
+    "rateLimit": {
+      "interAgent": { "perMinute": 60, "perHour": 1000 },
+      "websocket": { "messagesPerMinute": 30, "maxClients": 50, "maxMessageSize": 65536 }
+    }
+  },
+  "logging": {
+    "level": "info",
+    "maxSize": "10MB",
+    "maxFiles": 5,
+    "jsonFormat": true
+  }
+}

@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Anuki — AI Agent Platform</title>
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --surface: #12121a;
+      --surface-hover: #1a1a25;
+      --border: #2a2a3a;
+      --text: #e0e0e8;
+      --text-dim: #8888a0;
+      --accent: #6366f1;
+      --accent-hover: #818cf8;
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --error: #ef4444;
+      --agent-enki: #f59e0b;
+      --agent-protos: #6366f1;
+      --agent-utu: #22c55e;
+      --sidebar-w: 260px;
+      --header-h: 56px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Layout */
+    .app {
+      display: flex;
+      height: 100vh;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      width: var(--sidebar-w);
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+
+    .sidebar-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .sidebar-header h1 {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+
+    .sidebar-header .version {
+      font-size: 11px;
+      color: var(--text-dim);
+      background: var(--surface-hover);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    .sidebar-section {
+      padding: 12px 12px 8px;
+    }
+
+    .sidebar-section-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 0 8px 8px;
+    }
+
+    .agent-list {
+      list-style: none;
+    }
+
+    .agent-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .agent-item:hover {
+      background: var(--surface-hover);
+    }
+
+    .agent-item.active {
+      background: var(--surface-hover);
+      border: 1px solid var(--border);
+    }
+
+    .agent-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .agent-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .agent-name {
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .agent-role {
+      font-size: 12px;
+      color: var(--text-dim);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .sidebar-footer {
+      margin-top: auto;
+      padding: 12px;
+      border-top: 1px solid var(--border);
+    }
+
+    .settings-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      padding: 10px 12px;
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      font-size: 13px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .settings-btn:hover {
+      background: var(--surface-hover);
+      color: var(--text);
+    }
+
+    /* Main Chat Area */
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    .chat-header {
+      height: var(--header-h);
+      padding: 0 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: var(--surface);
+    }
+
+    .chat-header .agent-name {
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .chat-header .status {
+      font-size: 12px;
+      color: var(--success);
+    }
+
+    .messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .message {
+      max-width: 720px;
+      line-height: 1.6;
+    }
+
+    .message.user {
+      align-self: flex-end;
+      background: var(--accent);
+      color: white;
+      padding: 12px 16px;
+      border-radius: 16px 16px 4px 16px;
+    }
+
+    .message.assistant {
+      align-self: flex-start;
+      background: var(--surface);
+      padding: 12px 16px;
+      border-radius: 16px 16px 16px 4px;
+      border: 1px solid var(--border);
+    }
+
+    .message.system {
+      align-self: center;
+      color: var(--text-dim);
+      font-size: 13px;
+      font-style: italic;
+    }
+
+    .message .agent-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--accent);
+      margin-bottom: 4px;
+    }
+
+    .message pre {
+      background: var(--bg);
+      padding: 12px;
+      border-radius: 8px;
+      overflow-x: auto;
+      margin: 8px 0;
+      font-size: 13px;
+    }
+
+    .message code {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 13px;
+    }
+
+    .welcome {
+      text-align: center;
+      padding: 60px 24px;
+      color: var(--text-dim);
+    }
+
+    .welcome h2 {
+      font-size: 24px;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+
+    .welcome p {
+      font-size: 15px;
+      max-width: 500px;
+      margin: 0 auto;
+      line-height: 1.6;
+    }
+
+    /* Input Area */
+    .input-area {
+      padding: 16px 24px 24px;
+      border-top: 1px solid var(--border);
+      background: var(--surface);
+    }
+
+    .input-container {
+      display: flex;
+      gap: 12px;
+      max-width: 720px;
+      margin: 0 auto;
+    }
+
+    .input-container textarea {
+      flex: 1;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 12px 16px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-family: inherit;
+      resize: none;
+      min-height: 44px;
+      max-height: 200px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .input-container textarea:focus {
+      border-color: var(--accent);
+    }
+
+    .input-container textarea::placeholder {
+      color: var(--text-dim);
+    }
+
+    .send-btn {
+      width: 44px;
+      height: 44px;
+      background: var(--accent);
+      border: none;
+      border-radius: 12px;
+      color: white;
+      font-size: 18px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s;
+      flex-shrink: 0;
+      align-self: flex-end;
+    }
+
+    .send-btn:hover {
+      background: var(--accent-hover);
+    }
+
+    .send-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* Settings Modal */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-overlay.active {
+      display: flex;
+    }
+
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      width: 90%;
+      max-width: 500px;
+      max-height: 80vh;
+      overflow-y: auto;
+      padding: 24px;
+    }
+
+    .modal h2 {
+      font-size: 18px;
+      margin-bottom: 20px;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-dim);
+      margin-bottom: 6px;
+    }
+
+    .form-group input, .form-group select {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 14px;
+      outline: none;
+    }
+
+    .form-group input:focus {
+      border-color: var(--accent);
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+      margin-top: 24px;
+    }
+
+    .modal-actions button {
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 14px;
+      cursor: pointer;
+      border: none;
+    }
+
+    .btn-cancel {
+      background: var(--surface-hover);
+      color: var(--text);
+    }
+
+    .btn-save {
+      background: var(--accent);
+      color: white;
+    }
+
+    /* Loading indicator */
+    .typing-indicator {
+      display: none;
+      align-self: flex-start;
+      padding: 12px 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px 16px 16px 4px;
+      color: var(--text-dim);
+      font-size: 14px;
+    }
+
+    .typing-indicator.active {
+      display: block;
+    }
+
+    .typing-dots::after {
+      content: '';
+      animation: dots 1.5s infinite;
+    }
+
+    @keyframes dots {
+      0%, 20% { content: '.'; }
+      40% { content: '..'; }
+      60%, 100% { content: '...'; }
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+
+    /* Mobile menu button */
+    .mobile-menu-btn {
+      display: none;
+      background: none;
+      border: none;
+      color: var(--text);
+      font-size: 1.5rem;
+      cursor: pointer;
+      padding: 0.25rem 0.5rem;
+      margin-right: 0.5rem;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .sidebar { display: none; position: fixed; z-index: 100; top: 0; left: 0; bottom: 0; width: 260px; }
+      .sidebar.open { display: flex; }
+      .mobile-menu-btn { display: block; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h1>Anuki</h1>
+        <span class="version">v0.1</span>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Agents</div>
+        <ul class="agent-list" id="agentList">
+          <!-- Populated dynamically -->
+        </ul>
+      </div>
+
+      <div class="sidebar-footer">
+        <button class="settings-btn" onclick="openSettings()">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 4.754a3.246 3.246 0 1 0 0 6.492 3.246 3.246 0 0 0 0-6.492zM5.754 8a2.246 2.246 0 1 1 4.492 0 2.246 2.246 0 0 1-4.492 0z"/><path d="M9.796 1.343c-.527-1.79-3.065-1.79-3.592 0l-.094.319a.873.873 0 0 1-1.255.52l-.292-.16c-1.64-.892-3.433.902-2.54 2.541l.159.292a.873.873 0 0 1-.52 1.255l-.319.094c-1.79.527-1.79 3.065 0 3.592l.319.094a.873.873 0 0 1 .52 1.255l-.16.292c-.892 1.64.901 3.434 2.541 2.54l.292-.159a.873.873 0 0 1 1.255.52l.094.319c.527 1.79 3.065 1.79 3.592 0l.094-.319a.873.873 0 0 1 1.255-.52l.292.16c1.64.893 3.434-.902 2.54-2.541l-.159-.292a.873.873 0 0 1 .52-1.255l.319-.094c1.79-.527 1.79-3.065 0-3.592l-.319-.094a.873.873 0 0 1-.52-1.255l.16-.292c.893-1.64-.902-3.433-2.541-2.54l-.292.159a.873.873 0 0 1-1.255-.52l-.094-.319zm-2.633.283c.246-.835 1.428-.835 1.674 0l.094.319a1.873 1.873 0 0 0 2.693 1.115l.291-.16c.764-.415 1.6.42 1.184 1.185l-.159.292a1.873 1.873 0 0 0 1.116 2.692l.318.094c.835.246.835 1.428 0 1.674l-.319.094a1.873 1.873 0 0 0-1.115 2.693l.16.291c.415.764-.421 1.6-1.185 1.184l-.291-.159a1.873 1.873 0 0 0-2.693 1.116l-.094.318c-.246.835-1.428.835-1.674 0l-.094-.319a1.873 1.873 0 0 0-2.692-1.115l-.292.16c-.764.415-1.6-.421-1.184-1.185l.159-.291A1.873 1.873 0 0 0 1.945 8.93l-.319-.094c-.835-.246-.835-1.428 0-1.674l.319-.094A1.873 1.873 0 0 0 3.06 4.377l-.16-.292c-.415-.764.42-1.6 1.185-1.184l.292.159a1.873 1.873 0 0 0 2.692-1.115l.094-.319z"/></svg>
+          Settings
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Chat -->
+    <main class="main">
+      <div class="chat-header">
+        <button class="mobile-menu-btn" onclick="document.querySelector('.sidebar').classList.toggle('open')">&#9776;</button>
+        <div class="agent-dot" id="headerDot" style="background: var(--agent-protos)"></div>
+        <span class="agent-name" id="headerName">PROTOS</span>
+        <span class="status" id="headerStatus">online</span>
+      </div>
+
+      <div class="messages" id="messages">
+        <div class="welcome">
+          <h2>Welcome to Anuki</h2>
+          <p>Your AI agent platform is ready. Talk to PROTOS to get started, or switch agents in the sidebar.</p>
+        </div>
+      </div>
+
+      <div class="typing-indicator" id="typingIndicator">
+        <span class="typing-dots">Thinking</span>
+      </div>
+
+      <div class="input-area">
+        <div class="input-container">
+          <textarea
+            id="messageInput"
+            placeholder="Type a message..."
+            rows="1"
+            onkeydown="handleKeyDown(event)"
+            oninput="autoResize(this)"
+          ></textarea>
+          <button class="send-btn" id="sendBtn" onclick="sendMessage()">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2L15 22L11 13L2 9L22 2Z"/></svg>
+          </button>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Settings Modal -->
+  <div class="modal-overlay" id="settingsModal">
+    <div class="modal">
+      <h2>Settings</h2>
+      <div class="form-group">
+        <label>API Key (BYOK)</label>
+        <input type="password" id="apiKey" placeholder="sk-ant-..." />
+      </div>
+      <div class="form-group">
+        <label>Default Model</label>
+        <select id="defaultModel">
+          <option value="claude-sonnet-4-20250514">Claude Sonnet 4</option>
+          <option value="claude-haiku-4-5-20251001">Claude Haiku 4.5</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Claude CLI Path</label>
+        <input type="text" id="claudePath" placeholder="claude (auto-detect)" />
+      </div>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeSettings()">Cancel</button>
+        <button class="btn-save" onclick="saveSettings()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ═══════════════════════════════════════════════════════
+    // State
+    // ═══════════════════════════════════════════════════════
+    let ws = null;
+    let currentAgent = null;
+    let agents = [];
+    let conversationId = null;
+
+    const agentColors = {
+      'ENKI': 'var(--agent-enki)',
+      'PROTOS': 'var(--agent-protos)',
+      'UTU': 'var(--agent-utu)'
+    };
+
+    // ═══════════════════════════════════════════════════════
+    // Init
+    // ═══════════════════════════════════════════════════════
+    async function init() {
+      await loadAgents();
+      connectWebSocket();
+    }
+
+    async function loadAgents() {
+      try {
+        const res = await fetch('/api/agents');
+        const data = await res.json();
+        agents = data.agents || data;
+        renderAgentList();
+        // Select default agent
+        const defaultAgent = agents.find(a => a.isDefault) || agents[0];
+        if (defaultAgent) selectAgent(defaultAgent.id);
+      } catch (e) {
+        console.error('Failed to load agents:', e);
+      }
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function renderAgentList() {
+      const list = document.getElementById('agentList');
+      list.innerHTML = '';
+      agents.forEach(a => {
+        const li = document.createElement('li');
+        li.className = `agent-item ${currentAgent === a.id ? 'active' : ''}`;
+        li.dataset.agent = a.id;
+        li.onclick = () => selectAgent(a.id);
+        const dot = document.createElement('div');
+        dot.className = 'agent-dot';
+        dot.style.background = agentColors[a.name] || 'var(--accent)';
+        const info = document.createElement('div');
+        info.className = 'agent-info';
+        const nameDiv = document.createElement('div');
+        nameDiv.className = 'agent-name';
+        nameDiv.textContent = a.name;
+        const roleDiv = document.createElement('div');
+        roleDiv.className = 'agent-role';
+        roleDiv.textContent = a.description || a.name;
+        info.appendChild(nameDiv);
+        info.appendChild(roleDiv);
+        li.appendChild(dot);
+        li.appendChild(info);
+        list.appendChild(li);
+      });
+    }
+
+    function selectAgent(id) {
+      currentAgent = id;
+      const agent = agents.find(a => a.id === id);
+      if (!agent) return;
+
+      // Close mobile sidebar
+      document.querySelector('.sidebar').classList.remove('open');
+
+      // Update header
+      document.getElementById('headerName').textContent = agent.name;
+      document.getElementById('headerDot').style.background = agentColors[agent.name] || 'var(--accent)';
+
+      // Update sidebar selection
+      document.querySelectorAll('.agent-item').forEach(el => {
+        el.classList.toggle('active', el.dataset.agent === id);
+      });
+
+      // Clear messages for new agent (safe DOM construction)
+      const messages = document.getElementById('messages');
+      messages.innerHTML = '';
+      const welcome = document.createElement('div');
+      welcome.className = 'welcome';
+      const h2 = document.createElement('h2');
+      h2.textContent = agent.name;
+      const p = document.createElement('p');
+      p.textContent = agent.description || 'Ready to help.';
+      welcome.appendChild(h2);
+      welcome.appendChild(p);
+      messages.appendChild(welcome);
+
+      // New conversation
+      conversationId = `conv-${Date.now()}`;
+
+      // Notify server of workspace selection
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'select-workspace', workspaceId: id, conversationId: conversationId }));
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // WebSocket
+    // ═══════════════════════════════════════════════════════
+    let wsReconnectDelay = 3000;
+    let wsReconnectAttempts = 0;
+    let streamingBuffer = '';
+
+    function connectWebSocket() {
+      const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      ws = new WebSocket(`${protocol}//${location.host}`);
+
+      ws.onopen = () => {
+        console.log('WebSocket connected');
+        document.getElementById('headerStatus').textContent = 'online';
+        wsReconnectDelay = 3000;
+        wsReconnectAttempts = 0;
+
+        // Send workspace selection on connect
+        if (currentAgent) {
+          ws.send(JSON.stringify({ type: 'select-workspace', workspaceId: currentAgent, conversationId: conversationId }));
+        }
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          handleWSMessage(data);
+        } catch (e) {
+          console.error('WS parse error:', e);
+        }
+      };
+
+      ws.onclose = () => {
+        document.getElementById('headerStatus').textContent = 'reconnecting...';
+        wsReconnectAttempts++;
+        if (wsReconnectAttempts > 50) {
+          document.getElementById('headerStatus').textContent = 'offline';
+          return;
+        }
+        wsReconnectDelay = Math.min(wsReconnectDelay * 1.5, 30000);
+        setTimeout(connectWebSocket, wsReconnectDelay);
+      };
+
+      ws.onerror = (e) => {
+        console.error('WS error:', e);
+      };
+    }
+
+    function handleWSMessage(data) {
+      switch (data.type) {
+        case 'connected':
+          // Server acknowledged connection
+          break;
+
+        case 'text':
+        case 'system':
+          // Streaming text chunk — accumulate and show
+          showTyping();
+          streamingBuffer += (data.content || data.text || '');
+          updateStreamingMessage(streamingBuffer, data.agentName);
+          break;
+
+        case 'complete':
+          // Final response — replace streaming buffer with complete content
+          hideTyping();
+          if (data.content || streamingBuffer) {
+            finalizeStreamingMessage(data.content || streamingBuffer, data.agentName);
+          }
+          streamingBuffer = '';
+          break;
+
+        case 'done':
+          hideTyping();
+          if (streamingBuffer) {
+            finalizeStreamingMessage(streamingBuffer, data.agentName);
+            streamingBuffer = '';
+          }
+          break;
+
+        case 'error':
+          hideTyping();
+          streamingBuffer = '';
+          addMessage('system', 'Error: ' + (data.content || data.message || 'Unknown error'));
+          break;
+
+        case 'message-received':
+        case 'message-queued':
+          // Acknowledgements — show typing
+          showTyping();
+          break;
+
+        case 'agent-status':
+          // Agent status update (running, idle, etc.)
+          break;
+
+        case 'conversationSync':
+          // Sync conversation state
+          if (data.conversationId) conversationId = data.conversationId;
+          break;
+
+        case 'ping':
+          if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'pong' }));
+          }
+          break;
+
+        case 'reload':
+          // Server restarted — auto-reconnect
+          setTimeout(connectWebSocket, 2000);
+          break;
+
+        case 'resume-active':
+        case 'pending-completion':
+          // Resume scenarios — show the content if present
+          if (data.content) {
+            addMessage('assistant', data.content, data.agentName);
+          }
+          break;
+
+        case 'cancelled':
+          hideTyping();
+          streamingBuffer = '';
+          break;
+
+        default:
+          // Legacy support: assistant/response types
+          if (data.type === 'assistant' || data.type === 'response') {
+            hideTyping();
+            addMessage('assistant', data.content, data.agentName);
+          }
+          break;
+      }
+    }
+
+    function updateStreamingMessage(content, agentName) {
+      const messages = document.getElementById('messages');
+      let streamEl = messages.querySelector('.message.streaming');
+      if (!streamEl) {
+        streamEl = document.createElement('div');
+        streamEl.className = 'message assistant streaming';
+        messages.appendChild(streamEl);
+      }
+      if (agentName) {
+        const label = streamEl.querySelector('.agent-label') ? '' : `<div class="agent-label">${escapeHtml(agentName)}</div>`;
+        streamEl.innerHTML = label + formatContent(content);
+      } else {
+        streamEl.innerHTML = formatContent(content);
+      }
+      messages.scrollTop = messages.scrollHeight;
+    }
+
+    function finalizeStreamingMessage(content, agentName) {
+      const messages = document.getElementById('messages');
+      const streamEl = messages.querySelector('.message.streaming');
+      if (streamEl) {
+        streamEl.classList.remove('streaming');
+        if (agentName) {
+          streamEl.innerHTML = `<div class="agent-label">${escapeHtml(agentName)}</div>` + formatContent(content);
+        } else {
+          streamEl.innerHTML = formatContent(content);
+        }
+      } else {
+        addMessage('assistant', content, agentName);
+      }
+      messages.scrollTop = messages.scrollHeight;
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // Messages
+    // ═══════════════════════════════════════════════════════
+    function sendMessage() {
+      const input = document.getElementById('messageInput');
+      const text = input.value.trim();
+      if (!text || !currentAgent) return;
+
+      // Remove welcome screen
+      const welcome = document.querySelector('.welcome');
+      if (welcome) welcome.remove();
+
+      addMessage('user', text);
+      input.value = '';
+      autoResize(input);
+      showTyping();
+
+      // Send via WebSocket
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: 'message',
+          content: text,
+          workspaceId: currentAgent,
+          conversationId: conversationId,
+          channel: 'webchat'
+        }));
+      }
+    }
+
+    function addMessage(type, content, agentName) {
+      const messages = document.getElementById('messages');
+      const div = document.createElement('div');
+      div.className = `message ${type}`;
+
+      if (type === 'user' || type === 'system') {
+        // User and system messages — plain text, no HTML
+        div.textContent = content || '';
+      } else if (type === 'assistant' && agentName) {
+        div.innerHTML = `<div class="agent-label">${escapeHtml(agentName)}</div>` + formatContent(content);
+      } else {
+        div.innerHTML = formatContent(content);
+      }
+
+      messages.appendChild(div);
+      messages.scrollTop = messages.scrollHeight;
+    }
+
+    function formatContent(text) {
+      if (!text) return '';
+      // Escape HTML first to prevent XSS, then apply safe markdown
+      let safe = escapeHtml(text);
+      return safe
+        .replace(/```(\w*)\n?([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
+        .replace(/`([^`]+)`/g, '<code>$1</code>')
+        .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+        .replace(/\n/g, '<br>');
+    }
+
+    function showTyping() {
+      document.getElementById('typingIndicator').classList.add('active');
+    }
+
+    function hideTyping() {
+      document.getElementById('typingIndicator').classList.remove('active');
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // Input
+    // ═══════════════════════════════════════════════════════
+    function handleKeyDown(e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    }
+
+    function autoResize(el) {
+      el.style.height = 'auto';
+      el.style.height = Math.min(el.scrollHeight, 200) + 'px';
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // Settings
+    // ═══════════════════════════════════════════════════════
+    function openSettings() {
+      document.getElementById('settingsModal').classList.add('active');
+      // Load current settings
+      fetch('/api/config').then(r => r.json()).then(config => {
+        document.getElementById('defaultModel').value = config.agent?.model || '';
+        document.getElementById('claudePath').value = config.agent?.claudePath || '';
+      }).catch(() => {});
+    }
+
+    function closeSettings() {
+      document.getElementById('settingsModal').classList.remove('active');
+    }
+
+    function saveSettings() {
+      const apiKey = document.getElementById('apiKey').value;
+      if (apiKey) {
+        // Store locally — don't send to server
+        localStorage.setItem('anuki_api_key', apiKey);
+      }
+      closeSettings();
+    }
+
+    // Close modal on overlay click
+    document.getElementById('settingsModal').addEventListener('click', (e) => {
+      if (e.target === e.currentTarget) closeSettings();
+    });
+
+    // Start
+    init();
+  </script>
+</body>
+</html>

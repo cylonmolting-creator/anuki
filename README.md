@@ -1,0 +1,378 @@
+# Anuki
+
+**Open-source AI Agent LEGO Platform** — Build, manage, and orchestrate your own multi-agent team.
+
+Anuki gives you the building blocks. You build the team. Three core agents ship out of the box — use them to create unlimited specialized agents, enforce governance rules, and build a team that learns and remembers.
+
+![Anuki Screenshot](demo-screenshot.png)
+
+---
+
+## Why Anuki?
+
+> **Niche**: The only multi-agent framework with **response-level mechanical enforcement**. Every other framework guards tool calls — Anuki also guards what agents *say*. Combined with soul-driven identity, cognitive memory, and SSOT governance, this is the only platform where agents remember, learn, and are mechanically prevented from making unverified claims.
+
+Most multi-agent frameworks require you to define agents in code. Anuki takes a different approach: **agents create agents**. You describe what you need in natural language, and the system builds it — complete with identity, personality, tools, safety rules, and memory.
+
+**What makes it different:**
+
+| Feature | Anuki | CrewAI | LangGraph | AutoGen |
+|---------|-------|--------|-----------|---------|
+| Create agents via natural language | Yes (ENKI) | No | No | No |
+| Persistent agent identity (soul files) | 9 file types | No | No | No |
+| Cognitive memory (3 layers) | Yes | No | No | No |
+| Mechanical rule enforcement (SSOT) | Yes (UTU + build-rules) | No | No | No |
+| Response-level enforcement (Stop hooks) | **Yes** | No | No | No |
+| Agent-to-agent delegation | Yes | Partial | Partial | Yes |
+| Zero-dependency frontend | Yes | No | No | No |
+| BYOK (Bring Your Own Key) | Yes | Yes | Yes | Yes |
+
+---
+
+## The 3 Core Agents
+
+| Agent | Role | How It Works |
+|-------|------|-------------|
+| **PROTOS** | Navigator & Default | The first agent you talk to. Understands your intent, explains the platform, and auto-routes specialized requests to the right agent. |
+| **ENKI** | Agent Creator | Tell ENKI what you need in plain language. It creates complete agents with soul files, memory, safety rules — everything. New agents appear in your sidebar immediately. |
+| **UTU** | Rule Guardian | The designated authority on governance. UTU creates and modifies rules in `rules/`. Rules propagate automatically to all affected agents via the SSOT system. |
+
+**Auto-routing**: You don't need to manually switch agents. If you tell PROTOS "create a research agent", the system detects the intent and routes to ENKI automatically.
+
+---
+
+## Quick Start
+
+**Prerequisites**: [Node.js](https://nodejs.org) 18+ and [Claude CLI](https://docs.anthropic.com/en/docs/claude-cli) installed.
+
+```bash
+git clone https://github.com/YOUR-USERNAME/anuki.git
+cd anuki
+cp .env.example .env    # Add your Anthropic API key
+npm install
+npm start
+```
+
+Open `http://localhost:3000` in your browser. PROTOS will greet you.
+
+### Configuration
+
+**`.env`** — Basic settings:
+
+```env
+PORT=3000                          # Server port
+CLAUDE_PATH=claude                 # Claude CLI path (auto-detected if on PATH)
+ANTHROPIC_API_KEY=sk-ant-...       # Your Anthropic API key (BYOK)
+```
+
+**`config.json`** — Advanced settings: model selection, security limits, memory decay, logging.
+
+---
+
+## Core Features
+
+### Soul Files — Persistent Agent Identity
+
+Every agent has a set of markdown files that define its complete persona:
+
+| File | Purpose |
+|------|---------|
+| `IDENTITY.md` | Who the agent is — name, role, expertise |
+| `SOUL.md` | Personality, values, communication style |
+| `MISSION.md` | Goals, priorities, what it handles |
+| `TOOLS.md` | Available capabilities and how to use them |
+| `SAFETY.md` | Security rules (auto-generated from SSOT) |
+| `CODE_PROTOCOL.md` | Code writing standards (for developer agents) |
+| `PROMPT_PROFILE.md` | Model-specific hints and task routing triggers |
+
+Soul files are injected into the agent's system prompt at runtime. They persist across sessions — agents maintain consistent identity over time.
+
+### Cognitive Memory — Agents That Learn
+
+Three-layer memory system inspired by human cognition:
+
+- **Episodic** — What happened (conversation events, interactions)
+- **Semantic** — What is known (facts, user preferences, learned knowledge)
+- **Procedural** — How to do things (workflows, processes, recipes)
+
+Memory is indexed with TF-IDF for fast retrieval. Agents can store, search, and forget memories. A nightly reflection process distills episodic memories into semantic knowledge.
+
+### SSOT Rule System — Mechanical Governance
+
+Rules aren't suggestions — they're mechanically enforced. The SSOT (Single Source of Truth) system guarantees that every agent receives and obeys the same rules, automatically.
+
+Rules live in `rules/*.md` with YAML frontmatter:
+
+```yaml
+---
+id: 1
+title: No destructive tests
+severity: critical
+applies_to: [all]
+applies_to_tags: []
+enforcement: [soul-safety-inject]
+---
+DELETE/PUT tests must never use real workspace or agent IDs.
+```
+
+Run `node scripts/build-rules.js` — the generator reads all rules, filters by agent tags, and injects them into each agent's `SAFETY.md`. Idempotent. Tag-based. One source of truth.
+
+### Response-Level Enforcement — Stop Hooks
+
+> **Industry first.** No other multi-agent framework audits agent responses for unverified claims.
+
+Every framework enforces rules at the tool call boundary — before a file edit or command runs. But agents can make false claims in plain text without triggering any tool. "This is unused." "Not found." "Task complete." — all without evidence.
+
+Anuki's Stop hook system closes this gap. After every agent response, a deterministic shell hook scans the output:
+
+```
+Agent writes: "This module is unused, we can delete it."
+                ↓
+Stop hook fires → detects "unused" → no file:line evidence found
+                ↓
+Response BLOCKED → agent must verify and rewrite with proof
+```
+
+Stop hooks are auto-generated from SSOT rules — the same `build-rules.js` pipeline. Write a rule with `stop_hook: true`, and the enforcement is mechanical and automatic.
+
+**Two enforcement modes:**
+
+```yaml
+# Claim verification (default) — blocks claims without evidence
+---
+id: 5
+title: Response audit — block unverified claims
+enforcement: [stop-hook-audit, soul-safety-inject]
+stop_hook: true
+stop_patterns: [unused, dead code, not found, does not exist]
+stop_mode: claim    # blocks only when pattern found AND no evidence
+---
+
+# Behavioral enforcement — blocks forbidden patterns unconditionally
+---
+id: 6
+title: Never ask the user questions
+enforcement: [stop-hook-audit, soul-safety-inject]
+stop_hook: true
+stop_patterns: ["?", "do you want", "should I", "would you like"]
+stop_mode: behavioral    # blocks whenever pattern found, no evidence check
+---
+```
+
+**Four enforcement layers, one pipeline:**
+
+| Layer | Hook Type | What It Catches |
+|-------|-----------|----------------|
+| Before action | PreToolUse | Dangerous edits, destructive commands |
+| After action | PostToolUse | File tracking, edit verification |
+| Before response | UserPromptSubmit | Rule reminders |
+| After response | **Stop** | **Unverified claims, false completions** |
+
+### Deadlock Protection — Self-Healing Hooks
+
+> Every hook enforcement system has a failure mode: **what if the hooks themselves are broken?** A bad hook can block all tool calls, creating a deadlock where the agent can't fix the problem because the broken hook blocks every attempt.
+
+Anuki prevents this with 5 layers of protection:
+
+| # | Layer | What It Does |
+|---|-------|-------------|
+| 1 | **Shell sanitization** | `sanitizeForShell()` strips smart quotes, backticks, and characters that break shell syntax *before* hook generation |
+| 2 | **Regex escaping** | `escapeRegex()` escapes `?`, `*`, `(`, `)` and other regex metacharacters in pattern values |
+| 3 | **Syntax validation** | Every generated hook is tested with `sh -n` (parse-only) before deployment. Invalid hooks are **skipped**, not loaded |
+| 4 | **Atomic write** | Settings file is written to a temp file, validated as JSON, then atomically renamed. A crash during write can't corrupt the live file |
+| 5 | **Session recovery** | `SessionStart` hook runs `build-rules.js` on every new session, regenerating all hooks from source rules. Even if hooks are broken, the next session self-heals |
+
+**The deadlock scenario and why it can't happen:**
+
+```
+Bad rule text (e.g., unescaped apostrophe: "the agent's response")
+    ↓
+sanitizeForShell() strips dangerous characters
+    ↓
+buildStopHookCommand() generates shell script
+    ↓
+sh -n validates syntax → FAIL? → hook SKIPPED (not loaded)
+    ↓
+Atomic write to settings.json → crash-safe
+    ↓
+Even if all above fail: next session's SessionStart regenerates from source
+```
+
+This happened in production (2026-04-13): smart quotes and unescaped apostrophes in rule text broke shell hooks, causing a deadlock. The fix was adding these 5 layers — now the same scenario produces a warning log and skips the bad hook instead of creating a deadlock.
+
+### Agent-to-Agent Communication
+
+Agents can delegate tasks to each other:
+
+```
+[AGENT_MESSAGE:ENKI:create a code review agent:90]
+```
+
+The message router handles delivery, timeout (default 300s), loop detection, and hop limits. Agents collaborate without user intervention.
+
+### Auto-Router — Intent Detection
+
+When you talk to any agent, the system analyzes your message for intent patterns:
+
+- "Create an agent" → Routes to ENKI
+- "Add a rule" → Routes to UTU
+- Mentions a specific agent name → Routes to that agent
+- Everything else → Handled by current agent
+
+No manual switching needed. The system figures out where your message should go.
+
+### Health & Resilience
+
+- **Health Watchdog** — Monitors heartbeats, detects stuck processes, sweeps orphans every 60s
+- **Circuit Breakers** — Per-agent failure tracking with exponential backoff (5 failures → circuit opens)
+- **Agent Supervisor** — Resource monitoring, automatic restart with rate limiting
+- **Graceful Shutdown** — SIGTERM/SIGINT handlers ensure clean process termination
+
+---
+
+## Creating Agents
+
+Select **ENKI** from the sidebar:
+
+> "Create a code review agent that checks for security vulnerabilities and suggests fixes"
+
+ENKI will:
+1. Propose agent details (name, role, personality, tools)
+2. Ask for your confirmation
+3. Create the full agent workspace with soul files, memory directory, and safety rules
+4. The new agent appears in your sidebar immediately
+
+You can create any kind of agent — researcher, writer, analyst, developer, translator, anything.
+
+## Writing Rules
+
+Select **UTU** from the sidebar:
+
+> "Add a rule that all agents must cite sources when making factual claims"
+
+UTU will:
+1. Create the rule file with proper YAML frontmatter in `rules/`
+2. Validate against existing rules for conflicts
+3. Run the SSOT generator to propagate to all affected agents
+
+---
+
+## Architecture
+
+```
+anuki/
+├── src/
+│   ├── index.js              # Entry point — 5-phase boot sequence
+│   ├── agent/                 # 23 modules
+│   │   ├── executor.js        # Brain — Claude CLI orchestration, session management
+│   │   ├── workspace-manager.js   # Soul file CRUD, agent workspaces
+│   │   ├── auto-router.js     # Intent detection and agent routing
+│   │   ├── message-router.js  # Inter-agent communication
+│   │   ├── health-watchdog.js # Process monitoring, orphan cleanup
+│   │   ├── supervisor.js      # Circuit breakers, resource management
+│   │   ├── compactor.js       # Session compaction (bloat prevention)
+│   │   ├── context-guard.js   # Token limit monitoring (70/85/95%)
+│   │   ├── task-planner.js    # Multi-agent task decomposition
+│   │   └── ...                # Model resolver, lane queue, shared context
+│   ├── memory/
+│   │   ├── cognitive.js       # 3-tier memory with TF-IDF indexing
+│   │   └── reflection.js      # Nightly memory distillation
+│   ├── gateway/
+│   │   ├── http-server.js     # REST API (50+ endpoints)
+│   │   ├── websocket-server.js    # Streaming chat, resume support
+│   │   └── cron.js            # Scheduled jobs (reflection, decay, cleanup)
+│   ├── channels/              # WebChat (extensible to Telegram, Discord, etc.)
+│   ├── core/                  # Config, security, storage, backup
+│   └── utils/                 # Logger, atomic writes, conversation manager
+├── public/                    # Single-file web UI (zero dependencies)
+├── workspace/                 # Per-agent workspaces (soul + memory + sessions)
+├── rules/                     # SSOT governance rules
+├── scripts/                   # Build tools (rule generator, etc.)
+└── data/                      # Runtime state (agents, jobs, conversations)
+```
+
+**By the numbers**: 49 source files, ~24K lines of JavaScript, 9 dependencies.
+
+### Boot Sequence
+
+1. **Core Infrastructure** — Logger, PID registry, config, security, storage, workspaces
+2. **Memory & Intelligence** — Cognitive memory, context guard, compactor, reflection, watchdog
+3. **Agent Execution** — Router, executor, supervisor, auto-router, skills, task planner
+4. **Cron System** — Reflection, memory decay, conversation cleanup
+5. **Servers** — HTTP + WebSocket, ready to accept connections
+
+### API Highlights
+
+```
+GET  /api/health                  # System health (no auth required)
+GET  /api/agents                  # List all agents
+POST /api/agents                  # Create agent
+POST /api/agents/:id/message      # Send message to agent
+GET  /api/workspaces              # List workspaces
+GET  /api/workspaces/:id/soul     # Read agent's soul files
+PUT  /api/workspaces/:id/soul/:f  # Update a soul file
+GET  /api/active-jobs             # Running agent jobs
+POST /api/backup/create           # Create backup
+```
+
+Full API: 50+ REST endpoints covering agents, workspaces, conversations, memory, cron, backup, and inter-agent messaging.
+
+---
+
+## Session Management
+
+Anuki includes 14 layers of session bloat prevention — keeping conversations lean and context windows clean:
+
+| # | Layer | Where | What It Does |
+|---|-------|-------|-------------|
+| 1 | Session compaction (soft trim) | `compactor.js` | Summarizes old messages, preserves semantic bookmarks |
+| 2 | Session compaction (hard clear) | `compactor.js` | Replaces tool outputs with placeholders at critical levels |
+| 3 | Context guard — 70% warning | `context-guard.js:36` | Warns when token usage hits 70% |
+| 4 | Context guard — 85% compaction | `context-guard.js:37` | Triggers automatic compaction |
+| 5 | Context guard — 95% force truncate | `context-guard.js:38` | Emergency truncation to prevent overflow |
+| 6 | Idle timeout (2h) | `executor.js:17` | Closes inactive sessions after 2 hours |
+| 7 | Daily reset (04:00 UTC) | `executor.js:18` | Automatic session cleanup |
+| 8 | Max turns per call (15) | `executor.js:21` | Prevents runaway agent loops |
+| 9 | Session max turns (30) | `executor.js:1369` | Hard cap on total session turns |
+| 10 | Tool output truncation (30KB) | `executor.js:23` | Large tool outputs trimmed |
+| 11 | Stale session pruning (boot) | `executor.js:325` | Removes expired sessions on startup |
+| 12 | Stale session pruning (runtime) | `executor.js:380` | Continuous cleanup during operation |
+| 13 | Memory decay | `cron.js` | Old memories gradually fade |
+| 14 | Nightly reflection | `reflection.js` | Distills episodic → semantic memory |
+
+---
+
+## Tech Stack
+
+| Component | Technology |
+|-----------|-----------|
+| Runtime | Node.js 18+ |
+| AI Backend | Claude CLI — spawns Claude process per agent call |
+| Web Server | Express |
+| Real-time | WebSocket (ws) |
+| Frontend | Vanilla JS (single HTML file, zero framework) |
+| Database | None — JSON + Markdown files |
+| Scheduling | node-cron |
+| IDs | ULID + UUID |
+
+**Zero database dependency.** Everything is files — JSON for state, Markdown for identity. Easy to inspect, version control, and backup.
+
+---
+
+## License
+
+[MIT](LICENSE) — Use it, fork it, build on it.
+
+---
+
+## The Names
+
+The naming theme is Sumerian mythology — with one Greek exception.
+
+**Anuki** — From *Anunnaki*, the Sumerian council of gods. Each deity had their own domain, working together to run the world. That's what this platform does: a council of AI agents, each specialized, working as a team.
+
+**ENKI** — Sumerian god of creation and wisdom. ENKI created humans and gave them knowledge. In the platform, ENKI creates agents. Describe what you want, ENKI builds it from scratch.
+
+**UTU** — Sumerian god of justice and truth. UTU judged the dead and upheld cosmic law. In the platform, UTU is the designated authority on rules. Governance goes through UTU, and rules propagate to all agents via the SSOT system.
+
+**PROTOS** — Greek *protos* means "the first" — it's the first agent you talk to. Also a mashup of "prompter" (prompt architect that reads every agent's soul files and crafts perfect prompts) and the best redirectionist of all time (hey hey heyyyy, wassa wassa wassaaaa...). PROTOS redirects your requests to the right agent with unmatched enthusiasm.

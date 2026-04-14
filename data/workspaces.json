@@ -1,0 +1,26 @@
+{
+  "workspaces": [
+    {
+      "id": "enki",
+      "name": "ENKI",
+      "port": null,
+      "tags": ["architect", "agent-factory"],
+      "createdAt": "2026-04-13T00:00:00.000Z"
+    },
+    {
+      "id": "protos",
+      "name": "PROTOS",
+      "port": null,
+      "tags": ["prompt-engineer", "no-code"],
+      "createdAt": "2026-04-13T00:00:00.000Z"
+    },
+    {
+      "id": "utu",
+      "name": "UTU",
+      "port": null,
+      "tags": ["rule-keeper"],
+      "createdAt": "2026-04-13T00:00:00.000Z"
+    }
+  ],
+  "defaultId": "protos"
+}
