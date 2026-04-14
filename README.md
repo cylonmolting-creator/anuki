@@ -10,7 +10,7 @@ Anuki gives you the building blocks. You build the team. Three core agents ship 
 
 ## Why Anuki?
 
-> **Niche**: The only multi-agent framework with **response-level mechanical enforcement**. Every other framework guards tool calls — Anuki also guards what agents *say*. Combined with soul-driven identity, cognitive memory, and SSOT governance, this is the only platform where agents remember, learn, and are mechanically prevented from making unverified claims.
+> **Niche**: The only multi-agent framework with **response-level claim verification**. Every other framework controls what agents *do* (tool calls) — Anuki also verifies what agents *claim*. When an agent says "this function is unused", a Stop hook runs `grep` to check. If the claim is false, the agent is corrected before the response reaches the user. Combined with soul-driven identity, cognitive memory, and SSOT governance, this is the only platform where agents remember, learn, and are mechanically fact-checked.
 
 Most multi-agent frameworks require you to define agents in code. Anuki takes a different approach: **agents create agents**. You describe what you need in natural language, and the system builds it — complete with identity, personality, tools, safety rules, and memory.
 
