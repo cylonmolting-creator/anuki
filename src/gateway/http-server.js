@@ -2333,7 +2333,7 @@ class HTTPServer {
       }
     });
 
-    // Security endpoints (NICE-19)
+    // Security endpoints
     this.app.post('/api/security/rotate-token', (req, res) => {
       if (!this.security) return res.status(500).json({ error: 'Security not available' });
       const newToken = this.security.rotateApiToken();
@@ -2465,7 +2465,7 @@ class HTTPServer {
     });
 
 
-    // Logger status endpoint (NICE-24)
+    // Logger status endpoint
     this.app.get('/api/logs/status', (req, res) => {
       if (this.logger && this.logger.getStatus) {
         res.json(this.logger.getStatus());

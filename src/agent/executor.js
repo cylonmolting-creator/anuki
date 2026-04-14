@@ -14,7 +14,7 @@ const SOUL_CACHE_TTL = 300000; // 5 minutes
 // Soul file truncation REMOVED — files are never truncated. Claude context (200K) handles them fully.
 const soulCache = new Map(); // key -> { content, timestamp }
 
-// Session management constants (ONEMLI-4)
+// Session management constants
 const SESSION_IDLE_TIMEOUT = 7200000; // 2 hours
 const SESSION_RESET_HOUR = 4; // 04:00 daily reset
 
@@ -97,7 +97,7 @@ const MODEL_TIER = {
 // Maps common agent types to rich configurations
 const AGENT_TEMPLATES = {
   'code-reviewer': {
-    matchKeywords: ['code review', 'code reviewer', 'review code', 'kod inceleme', 'kod gözden geçirme'],
+    matchKeywords: ['code review', 'code reviewer', 'review code'],
     name: 'CodeReviewer',
     personality: { style: 'professional', traits: ['meticulous', 'constructive', 'specialized'] },
     skills: 'code review, refactoring, best practices, security audit, performance analysis',
@@ -119,7 +119,7 @@ When reviewing code:
     color: '#ef4444'
   },
   'researcher': {
-    matchKeywords: ['research', 'researcher', 'araştırma', 'araştırmacı', 'investigate', 'analyze', 'mugo'],
+    matchKeywords: ['research', 'researcher', 'investigate', 'analyze', 'mugo'],
     name: 'MUGO',
     personality: { style: 'detailed', traits: ['thorough', 'analytical', 'specialized'] },
     skills: 'web research, data analysis, summarization, fact-checking, report writing',
@@ -141,7 +141,7 @@ When researching:
     color: '#3b82f6'
   },
   'writer': {
-    matchKeywords: ['writer', 'writing', 'content', 'copywriter', 'yazar', 'içerik', 'metin'],
+    matchKeywords: ['writer', 'writing', 'content', 'copywriter'],
     name: 'Writer',
     personality: { style: 'friendly', traits: ['creative', 'articulate', 'specialized'] },
     skills: 'content writing, copywriting, editing, storytelling, tone adaptation',
@@ -163,7 +163,7 @@ When writing:
     color: '#8b5cf6'
   },
   'translator': {
-    matchKeywords: ['translator', 'translation', 'translate', 'çeviri', 'çevirmen', 'localization'],
+    matchKeywords: ['translator', 'translation', 'translate', 'localization'],
     name: 'Translator',
     personality: { style: 'concise', traits: ['precise', 'culturally-aware', 'specialized'] },
     skills: 'translation, localization, cultural adaptation, terminology management',
@@ -276,7 +276,7 @@ class AgentExecutor {
     this.contextGuard = null;
     this.security = null;
     this.laneQueue = null;
-    this.storage = null; // For reminders (ONEMLI-5)
+    this.storage = null; // For reminders
     this.agentManager = null; // Injected from index.js
     this.messageRouter = null; // Injected from index.js
     this.autoRouter = null; // Auto-routing for inter-agent messaging
@@ -292,7 +292,7 @@ class AgentExecutor {
     this._restartRequestedBy = null; // Which workspace requested the restart
     this._shuttingDown = false; // Set to true during graceful shutdown — prevents queue flush
 
-    // Session tracking for idle/daily reset (ONEMLI-4)
+    // Session tracking for idle/daily reset
     this.sessions = this._loadSessions(); // sessionKey -> { lastActivity, resetCount, sessionId }
   }
 
@@ -480,7 +480,7 @@ class AgentExecutor {
     if (cleaned > 0) {
       this._saveSessions();
       this.logger.info('AgentExecutor', `Cleaned ${cleaned} session(s) for deleted conversation ${conversationId}`);
-      this._notifyUI(`Silinen konuşmaya ait ${cleaned} oturum temizlendi`, 'info');
+      this._notifyUI(`Cleaned ${cleaned} orphaned sessions from deleted conversations`, 'info');
     }
   }
 
@@ -729,11 +729,11 @@ class AgentExecutor {
 
     // Tiered complexity detection (prevents over-triggering opus)
     // HIGH complexity: architecture, implementation, multi-step tasks → opus
-    const hasHighComplex = /\b(refactor|implement|debug deploy|migration|architect|create agent|yeni agent|agent oluştur|iyice analiz|detaylı analiz)\b/i.test(lower);
+    const hasHighComplex = /\b(refactor|implement|debug deploy|migration|architect|create agent|deep analysis|detailed analysis)\b/i.test(lower);
     // MEDIUM complexity: analysis, optimization → sonnet
-    const hasMediumComplex = /\b(analiz et|karşılaştır|optimize|test et|fix|engelle)\b/i.test(lower);
+    const hasMediumComplex = /\b(analyze|compare|optimize|test|fix|block|review)\b/i.test(lower);
     // LOW complexity: common operations → sonnet (NOT opus)
-    const hasLowComplex = /\b(kodu yaz|dosya oku|dosya yaz|komut çalıştır|function|class|component|api|database)\b/i.test(lower);
+    const hasLowComplex = /\b(write code|read file|write file|run command|function|class|component|api|database)\b/i.test(lower);
 
     // Short messages (< 60 chars): haiku unless HIGH complexity
     if (len < 60) {
@@ -789,7 +789,7 @@ class AgentExecutor {
   }
 
   // ═══════════════════════════════════════════════════════════
-  // SLASH COMMANDS (ONEMLI-7,8,9, NICE-18,22)
+  // SLASH COMMANDS
   // ═══════════════════════════════════════════════════════════
 
   async handleCommand(text, channel, userId, replyFn, isGroup, workspaceId, conversationId) {
@@ -958,23 +958,23 @@ class AgentExecutor {
           if (key.startsWith(prefix)) totalSessions++;
         }
         return replyFn([
-          'Session Bilgisi',
-          '================',
-          'Session ID: ' + (sess.sessionId || 'yok (yeni session)'),
-          'Son aktivite: ' + (sess.lastActivity ? new Date(sess.lastActivity).toLocaleString('tr-TR') : 'bilinmiyor'),
-          'Turn sayisi: ' + (sess.turnCount || 0),
-          'Reset sayisi: ' + (sess.resetCount || 0),
-          'Toplam session: ' + totalSessions,
-          'Idle timeout: 2 saat',
-          'Daily reset: 04:00',
+          'Session Info',
+          '============',
+          'Session ID: ' + (sess.sessionId || 'none (new session)'),
+          'Last activity: ' + (sess.lastActivity ? new Date(sess.lastActivity).toISOString() : 'unknown'),
+          'Turn count: ' + (sess.turnCount || 0),
+          'Reset count: ' + (sess.resetCount || 0),
+          'Total sessions: ' + totalSessions,
+          'Idle timeout: 2 hours',
+          'Daily reset: 04:00 UTC',
           '',
-          'Token Optimizasyonu',
-          '===================',
+          'Token Optimization',
+          '==================',
           'Max turns: ' + MAX_TURNS_DEFAULT,
           'Max budget: $' + MAX_BUDGET_USD,
           'Tool output limit: ' + TOOL_OUTPUT_MAX_CHARS + ' chars',
           'Model tiering: haiku/sonnet/opus',
-          'Bootstrap skip on resume: ' + (sess.sessionId ? 'AKTIF' : 'N/A')
+          'Bootstrap skip on resume: ' + (sess.sessionId ? 'active' : 'N/A')
         ].join('\n'));
       }
 
@@ -983,10 +983,10 @@ class AgentExecutor {
         const soulWs = this.workspaceManager.getDefaultWorkspace();
         const soulWsId = soulWs ? soulWs.id : workspaceId;
         const loaded = this._loadSoulFilesCached(soulWsId);
-        const lines = ['Soul Dosyalari', '=============='];
+        const lines = ['Soul Files', '=========='];
         for (const f of soulFileNames) {
           const content = loaded[f];
-          const status = content ? (content.length + ' karakter') : 'yuklenmedi';
+          const status = content ? (content.length + ' chars') : 'not loaded';
           lines.push(f + ': ' + status);
         }
         return replyFn(lines.join('\n'));
@@ -1010,11 +1010,11 @@ class AgentExecutor {
             lastActivity: new Date().toISOString()
           });
         }
-        return replyFn(`${cleared} session temizlendi (hafiza korundu)`);
+        return replyFn(`${cleared} session(s) cleared (memory preserved)`);
       }
 
       default:
-        return replyFn('Bilinmeyen komut. /help ile komutlari gor.');
+        return replyFn('Unknown command. Use /help to see available commands.');
     }
   }
 
@@ -1340,7 +1340,7 @@ class AgentExecutor {
       }
     }
 
-    // Slash commands (ONEMLI-7,8,9, NICE-18,22)
+    // Slash commands
     // Only treat as command if starts with / followed by a letter (not /Users/... paths)
     if (userMessage.startsWith('/') && /^\/[a-zA-Z]/.test(userMessage) && !userMessage.startsWith('/Users') && !userMessage.startsWith('/home') && !userMessage.startsWith('/tmp')) {
       const replyFn = (text) => {
@@ -1390,7 +1390,7 @@ class AgentExecutor {
       this.logger.info('AgentExecutor', `[CONCURRENT] Workspace ${effectiveWorkspaceId} has ${concurrent + 1} parallel processes (conv: ${conversationId}, also: ${wsLock.conversationId})`);
     }
 
-    // ONEMLI-4: Session idle/daily/turn-count reset + SESSION PERSISTENCE
+    // Session idle/daily/turn-count reset + SESSION PERSISTENCE
     // Session key includes conversationId so each conversation gets its own session
     // Without conversationId, all conversations share ONE Claude session — causing
     // wrong context, missing messages, and cross-conversation contamination
@@ -1444,7 +1444,7 @@ class AgentExecutor {
     sessionMeta.lastActivity = new Date().toISOString();
     this.sessions.set(sessionKey, sessionMeta);
 
-    // COMPACTION: Recap oluşturmadan önce, conversation çok uzunsa compact et
+    // COMPACTION: Compact long conversations before building recap
     if (this.compactor && conversationId && this.conversationManager) {
       try {
         const conv = this.conversationManager.getConversation(conversationId);
@@ -1477,7 +1477,7 @@ class AgentExecutor {
           const recentMsgs = conv.messages.slice(-RECAP_MSG_COUNT);
           const totalMsgs = recentMsgs.length;
           const recapLines = recentMsgs.map((m, idx) => {
-            const role = m.role === 'user' ? 'Kullanıcı' : 'Sen';
+            const role = m.role === 'user' ? 'User' : 'Agent';
             const isRecent = idx >= totalMsgs - RECAP_RECENT_FULL;
             // Last 5 messages: full content (critical for continuity)
             // Older messages: truncated to 2000 chars
@@ -1487,9 +1487,9 @@ class AgentExecutor {
             return `${role}: ${content}`;
           });
           const rotationNote = effectiveSessionId === null
-            ? '\n⚠️ SESSION ROTATION: Turn limit aşıldı, yeni session başlatıldı. Son mesajlara dikkat — yarım kalan iş varsa devam et.\n'
+            ? '\n⚠️ SESSION ROTATION: Turn limit reached, new session started. Review recent messages — continue any unfinished work.\n'
             : '';
-          conversationRecap = '\n\n=== SON KONUŞMA GEÇMİŞİ (bağlamı koru) ===' + rotationNote + '\n' + recapLines.join('\n---\n');
+          conversationRecap = '\n\n=== RECENT CONVERSATION HISTORY (preserve context) ===' + rotationNote + '\n' + recapLines.join('\n---\n');
           this.logger.info('AgentExecutor', `Context bridge: injecting ${recentMsgs.length} message recap (${RECAP_RECENT_FULL} full, ${totalMsgs - RECAP_RECENT_FULL} truncated)`, { requestId });
         }
       } catch (e) {
@@ -1521,12 +1521,12 @@ class AgentExecutor {
       this.recordDecision(workspaceId, 'model_choice', {
         model: selectedModel,
         messageLength: safeMessage.length,
-        hasComplexKeywords: /\b(refactor|implement|debug|deploy|migration|architect|analiz et|karşılaştır|optimize|kodu yaz|function|class|component|api|database|docker|kubernetes|dosya oku|dosya yaz|komut çalıştır)\b/i.test(safeMessage.toLowerCase())
+        hasComplexKeywords: /\b(refactor|implement|debug|deploy|migration|architect|analyze|compare|optimize|write code|function|class|component|api|database|docker|kubernetes|read file|write file|run command)\b/i.test(safeMessage.toLowerCase())
       }, `Selected ${selectedModel} model for ${safeMessage.length}-char message`);
     }
 
-    // BUDGET CHECK: DISABLED — paket kullanıyoruz, token başına maliyet yok
-    // Budget throttle kaldırıldı. Hustle her zaman kendi model tier'ında çalışır.
+    // BUDGET CHECK: DISABLED — using flat-rate package, no per-token cost
+    // Budget throttle removed. Each agent runs at its own model tier.
 
     // TOKEN OPTIMIZATION: Bootstrap skip on resume
     // Resume sessions already have system prompt in context — only send lightweight context update
@@ -2188,7 +2188,7 @@ class AgentExecutor {
               timestamp: new Date().toISOString()
             });
             onComplete({
-              response: (cleanedResponse || fullResponse).trim() + '\n\n_(islem iptal edildi)_',
+              response: (cleanedResponse || fullResponse).trim() + '\n\n_(operation cancelled)_',
               sessionId: capturedSessionId,
               cost: totalCost,
               duration: duration,
@@ -2206,7 +2206,7 @@ class AgentExecutor {
               timestamp: new Date().toISOString()
             });
             onComplete({
-              response: '_(islem iptal edildi)_',
+              response: '_(operation cancelled)_',
               sessionId: capturedSessionId,
               cost: null,
               duration: null,
@@ -2294,7 +2294,7 @@ class AgentExecutor {
             this.logger.info('AgentExecutor', `Session persisted: ${capturedSessionId} for ${sessionKey}`);
           }
 
-          // Process tool tags and clean response (ONEMLI-5,6,12, NICE-21)
+          // Process tool tags and clean response
           const tagResult = await this._processToolTags(fullResponse, channel, userId, workspaceId, delegationContext, conversationId);
           const agentReplies = tagResult.agentReplies || [];
 
@@ -2313,7 +2313,7 @@ class AgentExecutor {
               this._pendingMessages.set(conversationId, []);
             }
             this._pendingMessages.get(conversationId).push({
-              message: `Delege ettiğin agent cevap verdi. Cevaba göre devam et, gerekirse tekrar delege et:\n\n${delegationReply}`,
+              message: `The delegated agent has responded. Continue based on this reply, delegate again if needed:\n\n${delegationReply}`,
               images: [],
               onEvent,
               onComplete,
@@ -2330,7 +2330,7 @@ class AgentExecutor {
           // No delegation — normal completion path
           const cleanedResponse = tagResult.cleaned;
 
-          // Store episode in cognitive memory (NICE-16,17)
+          // Store episode in cognitive memory
           this._storeEpisode(userMessage, fullResponse, channel, userId, workspaceId);
 
           // Credential scanning on output
@@ -2416,7 +2416,7 @@ class AgentExecutor {
           // SAFE-RESTART: Check if a restart was queued while this agent was running
           this._checkAndExecutePendingRestart(conversationId);
 
-          // Record usage for tracking only (budget DISABLED — paket kullanıyoruz)
+          // Record usage for tracking only (budget DISABLED — flat-rate package)
           if (this.usageTracker && totalCost) {
             this.usageTracker.record(totalCost, selectedModel, channel, totalInputTokens, totalOutputTokens);
           }
@@ -2490,7 +2490,7 @@ class AgentExecutor {
                 delayLabel = `${CLI_RETRY_DELAY_MS}ms`;
                 this.logger.warn('AgentExecutor', `CLI exited with code ${exitCode} (retryable), attempt ${nextRetry + 1}/${maxRetries + 1} in ${delayLabel}...`);
                 if (onEvent) {
-                  onEvent({ type: 'text', content: `\n\n_(Hata oluştu, yeniden deneniyor... deneme ${nextRetry + 1}/${maxRetries + 1})_\n` });
+                  onEvent({ type: 'text', content: `\n\n_(Error occurred, retrying... attempt ${nextRetry + 1}/${maxRetries + 1})_\n` });
                 }
                 this._activeJobs.delete(conversationId);
                 this._saveActiveJobs();
@@ -2537,7 +2537,7 @@ class AgentExecutor {
             }
           }
           if (_retryCount > 0) {
-            errorMsg += ` (${_retryCount + 1} deneme sonrası)`;
+            errorMsg += ` (${_retryCount + 1} attempts)`;
           }
           const err = new Error(errorMsg);
           if (requestId && requestTracer) {
@@ -2637,7 +2637,7 @@ class AgentExecutor {
           const totalAttempts = CLI_MAX_RETRIES + 1;
           this.logger.warn('AgentExecutor', `CLI spawn failed (retryable), attempt ${nextRetry + 1}/${totalAttempts} in ${CLI_RETRY_DELAY_MS}ms...`);
           if (onEvent) {
-            onEvent({ type: 'text', content: `\n\n_(Hata oluştu, yeniden deneniyor... deneme ${nextRetry + 1}/${totalAttempts})_\n` });
+            onEvent({ type: 'text', content: `\n\n_(Error occurred, retrying... attempt ${nextRetry + 1}/${totalAttempts})_\n` });
           }
           await new Promise(r => setTimeout(r, CLI_RETRY_DELAY_MS));
           try {
@@ -2662,7 +2662,7 @@ class AgentExecutor {
         });
 
         if (_retryCount > 0) {
-          error = new Error(`${error.message} (${_retryCount + 1} deneme sonrası)`);
+          error = new Error(`${error.message} (${_retryCount + 1} attempts)`);
         }
         if (requestId && requestTracer) {
           requestTracer.endTrace(requestId, 'error');
@@ -2883,14 +2883,14 @@ NEVER DO:
       try {
         const reminders = this.storage.getReminders(userId);
         if (reminders && reminders.length > 0) {
-          const remText = reminders.map(r => `- ${r.text} (${new Date(r.triggerTime).toLocaleString('tr-TR')})`).join('\n');
-          sections.push('AKTIF HATIRLATICILAR:\n' + remText);
+          const remText = reminders.map(r => `- ${r.text} (${new Date(r.triggerTime).toISOString()})`).join('\n');
+          sections.push('ACTIVE REMINDERS:\n' + remText);
         }
       } catch (e) { /* skip */ }
     }
 
     if (isGroup) {
-      sections.push('NOT: Grupta gizli bilgi paylasma.');
+      sections.push('NOTE: Do not share confidential information in group chats.');
     }
 
     return sections.join('\n\n');
@@ -2905,18 +2905,18 @@ NEVER DO:
 
     // === IDENTITY (Bootstrap file) ===
     if (soulFiles['IDENTITY.md']) {
-      sections.push('=== KIMLIK ===\n' + soulFiles['IDENTITY.md']);
+      sections.push('=== IDENTITY ===\n' + soulFiles['IDENTITY.md']);
     }
 
     // === SOUL (Personality & behavior) ===
     if (soulFiles['SOUL.md']) {
-      sections.push('=== KISILIK (SOUL) ===\n' + soulFiles['SOUL.md']);
-      sections.push('SOUL.md varsa, bu kisilige burun. Robotik, jenerik cevaplardan kacin.');
+      sections.push('=== PERSONALITY (SOUL) ===\n' + soulFiles['SOUL.md']);
+      sections.push('Embody this personality fully. Avoid robotic, generic responses.');
     }
 
     // === AGENTS (Operation rules) ===
     if (soulFiles['AGENTS.md']) {
-      sections.push('=== OPERASYON KURALLARI (AGENTS) ===\n' + soulFiles['AGENTS.md']);
+      sections.push('=== OPERATION RULES (AGENTS) ===\n' + soulFiles['AGENTS.md']);
     }
 
     // Dynamic agent registry (runtime injection) — enables cross-agent awareness
@@ -3043,7 +3043,7 @@ Platform: ${process.platform}`);
               .slice(0, 3)
               .map(p => `- ${p.name}: ${p.description}`)
               .join('\n');
-            sections.push('=== ILGILI BECERILER ===\n' + procText);
+            sections.push('=== RELEVANT SKILLS ===\n' + procText);
           }
         } catch (e) {
           this.logger.warn('AgentExecutor', `Memory retrieval error: ${e.message}`);
@@ -3067,13 +3067,13 @@ Platform: ${process.platform}`);
       }
     }
 
-    // === REMINDERS (ONEMLI-5) ===
+    // === REMINDERS ===
     if (this.storage && this.storage.getReminders) {
       try {
         const reminders = this.storage.getReminders(userId);
         if (reminders && reminders.length > 0) {
-          const remText = reminders.map(r => `- ${r.text} (${new Date(r.triggerTime).toLocaleString('tr-TR')})`).join('\n');
-          sections.push('=== AKTIF HATIRLATICILAR ===\n' + remText);
+          const remText = reminders.map(r => `- ${r.text} (${new Date(r.triggerTime).toISOString()})`).join('\n');
+          sections.push('=== ACTIVE REMINDERS ===\n' + remText);
         }
       } catch (e) {
         // No reminders or method not available
@@ -3107,7 +3107,7 @@ ALWAYS save user preferences, decisions, and important information.`);
   }
 
   // ═══════════════════════════════════════════════════════════
-  // TOOL TAG PROCESSING (Gateway-identical, ONEMLI-5,6,12, NICE-21)
+  // TOOL TAG PROCESSING
   // Returns cleaned response with tags stripped
   // ═══════════════════════════════════════════════════════════
 
@@ -3117,7 +3117,7 @@ ALWAYS save user preferences, decisions, and important information.`);
 
     let cleaned = response;
 
-    // [REMINDER:time:message] (ONEMLI-5,6)
+    // [REMINDER:time:message]
     const reminderRegex = /\[REMINDER:([^:]+):([^\]]+)\]/gi;
     let match;
     while ((match = reminderRegex.exec(response)) !== null) {
@@ -3308,18 +3308,18 @@ ALWAYS save user preferences, decisions, and important information.`);
           if (result.reply) {
             this.logger.info('ToolTag', `[${workspaceId.substring(0, 8)}] Agent reply received: ${sanitizeForLog(result.reply, 200)}`);
             // Collect reply to show user
-            agentReplies.push(`\n\n**Cevap (${targetAgent.name || targetAgentId}):**\n${result.reply}`);
+            agentReplies.push(`\n\n**Reply (${targetAgent.name || targetAgentId}):**\n${result.reply}`);
           }
         } catch (err) {
           this.logger.warn('ToolTag', `[${workspaceId.substring(0, 8)}] Agent message failed: ${sanitizeForLog(err.message, 200)}`);
           // Show error to user — sanitize targetAgentId to prevent markdown injection
           const safeTarget = sanitizeForLog(targetAgentId, 50);
           const safeErr = sanitizeForLog(err.message, 200);
-          agentReplies.push(`\n\n**Hata:** ${safeTarget} agent'ına mesaj gönderilemedi: ${safeErr}`);
+          agentReplies.push(`\n\n**Error:** Failed to send message to ${safeTarget}: ${safeErr}`);
         }
       } else {
         this.logger.warn('ToolTag', 'MessageRouter not available or workspaceId missing, skipping agent message');
-        agentReplies.push(`\n\n**Hata:** MessageRouter mevcut değil`);
+        agentReplies.push(`\n\n**Error:** MessageRouter not available`);
       }
 
       cleaned = cleaned.replace(originalTag, '');
@@ -3348,7 +3348,7 @@ ALWAYS save user preferences, decisions, and important information.`);
           });
 
           if (result.status === 'no_subtasks') {
-            agentReplies.push(`\n\n**Task Plan:** Görev alt görevlere ayrılamadı — tek görev olarak işleniyor.`);
+            agentReplies.push(`\n\n**Task Plan:** Task could not be decomposed into subtasks — processing as a single task.`);
           } else if (result.synthesis) {
             agentReplies.push(`\n\n${result.synthesis.summary}`);
           }
@@ -3356,11 +3356,11 @@ ALWAYS save user preferences, decisions, and important information.`);
           this.logger.info('ToolTag', `TASK_PLAN completed: ${result.subtasks?.length || 0} subtasks, status=${result.status}`);
         } catch (err) {
           this.logger.error('ToolTag', `TASK_PLAN failed: ${sanitizeForLog(err.message, 200)}`);
-          agentReplies.push(`\n\n**Task Plan Hata:** ${sanitizeForLog(err.message, 200)}`);
+          agentReplies.push(`\n\n**Task Plan Error:** ${sanitizeForLog(err.message, 200)}`);
         }
       } else {
         this.logger.warn('ToolTag', 'TASK_PLAN: TaskPlanner not available');
-        agentReplies.push(`\n\n**Hata:** TaskPlanner mevcut değil`);
+        agentReplies.push(`\n\n**Error:** TaskPlanner not available`);
       }
 
       cleaned = cleaned.replace(originalTaskTag, '');
@@ -3395,18 +3395,18 @@ ALWAYS save user preferences, decisions, and important information.`);
 
           if (result.error) {
             this.logger.warn('ToolTag', `SUBGOAL_PROPOSE failed: ${result.error}`);
-            agentReplies.push(`\n\n**Subgoal Proposal Hata:** ${sanitizeForLog(result.reason || result.error, 150)}`);
+            agentReplies.push(`\n\n**Subgoal Proposal Error:** ${sanitizeForLog(result.reason || result.error, 150)}`);
           } else {
             this.logger.info('ToolTag', `SUBGOAL_PROPOSE approved: goalId=${result.goalId}, depth=${result.depth}`);
-            agentReplies.push(`\n\n**Alt Hedef Önerisi:** Kabul edildi (ID: ${result.goalId}, derinlik: ${result.depth})`);
+            agentReplies.push(`\n\n**Subgoal Proposal:** Accepted (ID: ${result.goalId}, depth: ${result.depth})`);
           }
         } catch (err) {
           this.logger.error('ToolTag', `SUBGOAL_PROPOSE exception: ${sanitizeForLog(err.message, 200)}`);
-          agentReplies.push(`\n\n**Alt Hedef Hata:** ${sanitizeForLog(err.message, 150)}`);
+          agentReplies.push(`\n\n**Subgoal Error:** ${sanitizeForLog(err.message, 150)}`);
         }
       } else {
         this.logger.warn('ToolTag', 'SUBGOAL_PROPOSE: TaskPlanner not available or not in task context');
-        agentReplies.push(`\n\n**Hata:** Alt hedef için task context'i gerekli`);
+        agentReplies.push(`\n\n**Error:** Task context required for subgoal proposals`);
       }
 
       cleaned = cleaned.replace(originalSubgoalTag, '');
@@ -3481,7 +3481,7 @@ ALWAYS save user preferences, decisions, and important information.`);
 
       if (!this.agentManager) {
         this.logger.warn('ToolTag', 'AGENT_CREATE: agentManager not available');
-        agentReplies.push(`\n\n**Hata:** Agent oluşturulamadı — agentManager mevcut değil.`);
+        agentReplies.push(`\n\n**Error:** Cannot create agent — agentManager not available.`);
         cleaned = cleaned.replace(match[0], '');
         continue;
       }
@@ -3491,7 +3491,7 @@ ALWAYS save user preferences, decisions, and important information.`);
       const duplicate = existingAgents.find(a => a.name && a.name.toLowerCase() === agentName.toLowerCase());
       if (duplicate) {
         this.logger.info('ToolTag', `AGENT_CREATE: Agent "${agentName}" already exists (${duplicate.id})`);
-        agentReplies.push(`\n\n**Bilgi:** "${agentName}" adında bir agent zaten mevcut (ID: ${duplicate.id.substring(0, 8)}...).`);
+        agentReplies.push(`\n\n**Info:** An agent named "${agentName}" already exists (ID: ${duplicate.id.substring(0, 8)}...).`);
         cleaned = cleaned.replace(match[0], '');
         continue;
       }
@@ -3560,9 +3560,9 @@ ALWAYS save user preferences, decisions, and important information.`);
           workspaceManager: this.workspaceManager
         });
 
-        const templateNote = templateUsed ? ` (şablon: ${templateUsed})` : '';
+        const templateNote = templateUsed ? ` (template: ${templateUsed})` : '';
         this.logger.success('ToolTag', `AGENT_CREATE: Created agent "${agentName}" (${agent.id}) — skills: ${finalSkills}, style: ${finalStyle}${templateNote}`);
-        agentReplies.push(`\n\n**Agent oluşturuldu:** "${agentName}" (ID: ${agent.id.substring(0, 8)}...)${templateNote} — Beceriler: ${finalSkills}, Stil: ${finalStyle}`);
+        agentReplies.push(`\n\n**Agent created:** "${agentName}" (ID: ${agent.id.substring(0, 8)}...)${templateNote} — Skills: ${finalSkills}, Style: ${finalStyle}`);
 
         // Register skills from soul files for the new agent (roadmap 5.2)
         if (this.skillRegistry) {
@@ -3574,7 +3574,7 @@ ALWAYS save user preferences, decisions, and important information.`);
         }
       } catch (err) {
         this.logger.error('ToolTag', `AGENT_CREATE failed: ${err.message}`);
-        agentReplies.push(`\n\n**Hata:** Agent oluşturulamadı: ${sanitizeForLog(err.message, 200)}`);
+        agentReplies.push(`\n\n**Error:** Failed to create agent: ${sanitizeForLog(err.message, 200)}`);
       }
 
       cleaned = cleaned.replace(match[0], '');
@@ -3589,8 +3589,8 @@ ALWAYS save user preferences, decisions, and important information.`);
   }
 
   // ═══════════════════════════════════════════════════════════
-  // TIME EXPRESSION PARSER (ONEMLI-6, from Gateway handler.js)
-  // Supports Turkish + English: "2 saat 30 dakika", "1 hour", "90 min"
+  // TIME EXPRESSION PARSER (from Gateway handler.js)
+  // Supports natural language: "1 hour", "90 min", "2 hours 30 minutes"
   // ═══════════════════════════════════════════════════════════
 
   _parseTimeExpression(expr) {
@@ -3601,10 +3601,10 @@ ALWAYS save user preferences, decisions, and important information.`);
 
     let total = 0;
     const patterns = [
-      { regex: /(\d+)\s*(saniye|sn|sec|second|seconds)/i, mult: 1 },
-      { regex: /(\d+)\s*(dakika|dk|min|minute|minutes)/i, mult: 60 },
-      { regex: /(\d+)\s*(saat|hr|hour|hours)/i, mult: 3600 },
-      { regex: /(\d+)\s*(gun|gün|day|days)/i, mult: 86400 },
+      { regex: /(\d+)\s*(sec|second|seconds)/i, mult: 1 },
+      { regex: /(\d+)\s*(min|minute|minutes)/i, mult: 60 },
+      { regex: /(\d+)\s*(hr|hour|hours)/i, mult: 3600 },
+      { regex: /(\d+)\s*(day|days)/i, mult: 86400 },
     ];
 
     for (const p of patterns) {
@@ -3618,14 +3618,14 @@ ALWAYS save user preferences, decisions, and important information.`);
   }
 
   // ═══════════════════════════════════════════════════════════
-  // EPISODIC MEMORY STORAGE (NICE-16,17: uses reflectionEngine)
+  // EPISODIC MEMORY STORAGE (uses reflectionEngine)
   // ═══════════════════════════════════════════════════════════
 
   _storeEpisode(userMessage, response, channel, userId, workspaceId, taskContext = null) {
     const memory = workspaceId ? this._getMemoryForWorkspace(workspaceId) : null;
     if (!memory) return;
 
-    // NICE-17: Use reflectionEngine.scoreImportance if available, else inline
+    // Use reflectionEngine.scoreImportance if available, else inline
     let importance;
     if (this.reflectionEngine && this.reflectionEngine.scoreImportance) {
       importance = this.reflectionEngine.scoreImportance(userMessage, response);
@@ -3643,7 +3643,7 @@ ALWAYS save user preferences, decisions, and important information.`);
       importance = Math.max(1, Math.min(10, importance));
     }
 
-    // NICE-16: Use reflectionEngine.detectSentiment if available, else inline
+    // Use reflectionEngine.detectSentiment if available, else inline
     let sentiment;
     if (this.reflectionEngine && this.reflectionEngine.detectSentiment) {
       sentiment = this.reflectionEngine.detectSentiment(userMessage);

@@ -213,7 +213,7 @@ class HealthWatchdog {
   // ═══════════════════════════════════════════════════════════════
 
   /**
-   * Sweep for orphan claude/node processes that have ppid=1 (orphaned).
+   * Sweep for orphan claude/node processes that have ppid=1 (adopted by launchd).
    * These can appear when:
    * - A child process survives parent death (detached:true + missed cleanup)
    * - A kill signal was missed during shutdown
@@ -263,9 +263,10 @@ class HealthWatchdog {
 
           // Match: claude CLI processes OR node processes running Anuki code
           const isClaude = args.includes('claude') && !args.includes('Claude.app');
-          const isAnukiNode = args.includes('node') && args.includes('src/index.js');
-          //           const isParallelUniverse = args.includes('bishop-lab') || args.includes('otherside');
-          return (isClaude || isAnukiNode) && !isParallelUniverse;
+          const isCylonNode = args.includes('node') && args.includes('src/index.js');
+          // Skip parallel universe processes — they're separate launchd-managed instances
+          const isParallelUniverse = args.includes('bishop-lab') || args.includes('otherside');
+          return (isClaude || isCylonNode) && !isParallelUniverse;
         })
         .map(parts => ({
           pid: parseInt(parts[0]),
@@ -275,11 +276,25 @@ class HealthWatchdog {
 
       if (orphans.length === 0) return; // Clean — most common case
 
+      // SAFETY: Get our own process group to avoid suicide
+      // If orphan pgid matches our own pgid, kill only the PID, not the group
+      let ownPgid = null;
+      try {
+        const pgidOut = execSync(`ps -o pgid= -p ${currentPid}`, { encoding: 'utf8' }).trim();
+        ownPgid = parseInt(pgidOut);
+      } catch (_) { /* fallback: no pgid kill */ }
+
       // Kill orphans
       for (const orphan of orphans) {
         this._warn('Orphan sweep: PID ' + orphan.pid + ' pgid=' + orphan.pgid + ' — ' + orphan.args);
+        // CRITICAL: Only group-kill if pgid differs from ours (prevents self-kill)
+        const safeToGroupKill = ownPgid && orphan.pgid !== ownPgid && orphan.pgid > 1;
         try {
-          process.kill(-orphan.pgid, 'SIGTERM');
+          if (safeToGroupKill) {
+            process.kill(-orphan.pgid, 'SIGTERM');
+          } else {
+            process.kill(orphan.pid, 'SIGTERM');
+          }
         } catch (_) {
           try { process.kill(orphan.pid, 'SIGTERM'); } catch (__) { /* dead */ }
         }
@@ -291,7 +306,12 @@ class HealthWatchdog {
         for (const orphan of orphans) {
           try {
             process.kill(orphan.pid, 0); // Check if still alive
-            process.kill(-orphan.pgid, 'SIGKILL');
+            const safeToGroupKill = ownPgid && orphan.pgid !== ownPgid && orphan.pgid > 1;
+            if (safeToGroupKill) {
+              process.kill(-orphan.pgid, 'SIGKILL');
+            } else {
+              process.kill(orphan.pid, 'SIGKILL');
+            }
             this._warn('Orphan sweep SIGKILL: PID ' + orphan.pid);
           } catch (_) { /* dead — good */ }
         }

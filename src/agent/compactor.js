@@ -3,10 +3,10 @@
  *
  * Token-based context management:
  *
- * Stratejiler:
- *   1. SOFT TRIM  — Eski mesajlari ozetleyerek kucult (bilgi korunur)
- *   2. HARD CLEAR — Kritik seviyede: eski tool result'lari placeholder'la,
- *                   sadece son N mesaji tut + ozet
+ * Strategies:
+ *   1. SOFT TRIM  — Summarize old messages (preserves information)
+ *   2. HARD CLEAR — Critical level: placeholder large tool results,
+ *                   keep only last N messages + summary
  *
  * Features:
  *   - Token-based decisions (instead of message count)
@@ -37,10 +37,10 @@ class SessionCompactor {
       'deadline', 'take note'
     ];
 
-    // Tool result max uzunluk (placeholder yapilacak esik)
+    // Tool result max length (threshold for placeholder replacement)
     this.toolResultMaxChars = config.toolResultMaxChars || 300;
 
-    // ContextGuard referansi (index.js'den inject edilecek)
+    // ContextGuard reference (injected from index.js)
     this.contextGuard = null;
   }
 
@@ -52,13 +52,13 @@ class SessionCompactor {
   }
 
   /**
-   * Token-bazli compaction gerekiyor mu?
-   * ContextGuard varsa token-bazli karar verir, yoksa mesaj sayisina bakar
+   * Is token-based compaction needed?
+   * Uses ContextGuard for token-based decisions, falls back to message count
    */
   needsCompaction(session, systemPrompt) {
     if (!session.messages || session.messages.length === 0) return false;
 
-    // Token-bazli kontrol (tercih edilen)
+    // Token-based check (preferred)
     if (this.contextGuard && systemPrompt) {
       const status = this.contextGuard.checkContext(systemPrompt, session.messages);
       if (status.action === 'compact' || status.action === 'truncate') {
@@ -68,12 +68,12 @@ class SessionCompactor {
       return false;
     }
 
-    // Fallback: mesaj sayisi bazli
+    // Fallback: message count based
     return session.messages.length > this.maxMessages;
   }
 
   /**
-   * Compaction seviyesini belirle: 'soft' veya 'hard'
+   * Determine compaction level: 'soft' or 'hard'
    */
   getCompactionLevel(session, systemPrompt) {
     if (this.contextGuard && systemPrompt) {
@@ -85,14 +85,14 @@ class SessionCompactor {
       return 'none';
     }
 
-    // Fallback: mesaj sayisi bazli
+    // Fallback: message count based
     if (session.messages.length > this.maxMessages * 1.5) return 'hard';
     if (session.messages.length > this.maxMessages) return 'soft';
     return 'none';
   }
 
   /**
-   * Ana compaction metodu — seviyeye gore soft veya hard uygular
+   * Main compaction method — applies soft or hard based on level
    */
   async compact(session, systemPrompt) {
     const level = this.getCompactionLevel(session, systemPrompt);
@@ -103,13 +103,13 @@ class SessionCompactor {
   }
 
   // =================================================================
-  // SOFT TRIM — Eski mesajlari ozetle, semantic bookmark'lari koru
+  // SOFT TRIM — Summarize old messages, preserve semantic bookmarks
   // =================================================================
 
   _softTrim(session, systemPrompt) {
     const oldCount = session.messages.length;
 
-    // Kac mesaj tutacagimizi token-bazli hesapla
+    // Calculate how many messages to keep (token-based)
     let keepCount = this.compactTo;
     if (this.contextGuard && systemPrompt) {
       keepCount = this.contextGuard.getRecommendedMessageCount(
@@ -118,7 +118,7 @@ class SessionCompactor {
       );
     }
 
-    // En az 5 mesaj tut
+    // Keep at least 5 messages
     keepCount = Math.max(5, Math.min(keepCount, session.messages.length));
 
     const toSummarize = session.messages.slice(0, -keepCount);
@@ -126,7 +126,7 @@ class SessionCompactor {
 
     if (toSummarize.length === 0) return session;
 
-    // Semantic bookmark'lari bul ve koru
+    // Find and preserve semantic bookmarks
     const bookmarked = [];
     const nonBookmarked = [];
 
@@ -184,20 +184,20 @@ class SessionCompactor {
   }
 
   // =================================================================
-  // HARD CLEAR — Kritik seviye, agresif temizlik
+  // HARD CLEAR — Critical level, aggressive cleanup
   // =================================================================
 
   _hardClear(session, systemPrompt) {
     const oldCount = session.messages.length;
 
-    // Minimum mesaj sayisi: sadece son 5-8 mesaji tut
+    // Minimum message count: keep only last 5-8 messages
     let keepCount = 8;
     if (this.contextGuard && systemPrompt) {
       keepCount = this.contextGuard.getRecommendedMessageCount(
         session.messages,
-        0.35 // Hedef: %35 kullanim
+        0.35 // Target: 35% usage
       );
-      keepCount = Math.max(5, Math.min(keepCount, 10)); // 5-10 arasi
+      keepCount = Math.max(5, Math.min(keepCount, 10)); // Range: 5-10
     }
 
     const toRemove = session.messages.slice(0, -keepCount);
@@ -212,10 +212,10 @@ class SessionCompactor {
       }
     }
 
-    // Korunan mesajlarda tool result'lari agresif kisalt
+    // Aggressively trim tool results in preserved messages
     const trimmedKeep = toKeep.map(m => this._trimToolResult(m, 150));
 
-    // Kisa ozet
+    // Brief summary
     const topicSet = new Set();
     for (const m of toRemove) {
       if (m.role === 'user' && m.content && m.content.length > 10) {
@@ -271,16 +271,16 @@ class SessionCompactor {
   }
 
   /**
-   * Tool result / uzun cevaplari placeholder ile kisalt
+   * Trim tool results / long responses with placeholders
    */
   _trimToolResult(msg, maxChars) {
     maxChars = maxChars || this.toolResultMaxChars;
     if (!msg.content || msg.content.length <= maxChars) return msg;
 
-    // System mesajlarini (ozet) kisaltma
+    // Don't trim system summary messages
     if (msg.role === 'system' && msg.isCompacted) return msg;
 
-    // Code block'lari tespit et ve kisalt
+    // Detect and trim code blocks
     const codeBlockRegex = /```[\s\S]*?```/g;
     let trimmed = msg.content;
 
@@ -290,23 +290,23 @@ class SessionCompactor {
         if (block.length > 200) {
           const firstLine = block.split('\n')[0];
           const lineCount = block.split('\n').length;
-          trimmed = trimmed.replace(block, firstLine + '\n[... ' + lineCount + ' satir kod ...]\n```');
+          trimmed = trimmed.replace(block, firstLine + '\n[... ' + lineCount + ' lines of code ...]\n```');
         }
       }
     }
 
-    // Hala uzunsa son maxChars karakteri tut
+    // If still too long, keep last maxChars characters
     if (trimmed.length > maxChars) {
       const prefix = trimmed.substring(0, 80);
       const suffix = trimmed.substring(trimmed.length - (maxChars - 100));
-      trimmed = prefix + '\n[... kisaltildi ...]\n' + suffix;
+      trimmed = prefix + '\n[... truncated ...]\n' + suffix;
     }
 
     return { ...msg, content: trimmed };
   }
 
   /**
-   * Token kullanim durumunu raporla (debug icin)
+   * Report token usage status (for debugging)
    */
   getTokenStatus(session, systemPrompt) {
     if (!this.contextGuard || !systemPrompt) {
