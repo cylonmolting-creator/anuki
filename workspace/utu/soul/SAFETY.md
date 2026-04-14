@@ -4,7 +4,7 @@
 
 > Auto-generated from `rules/`. Do not edit manually.
 > Agent: **UTU**  |  Tags: ["rule-keeper"]
-> Rule count: 5
+> Rule count: 6
 > **To modify rules, edit `rules/NNN-*.md` and run `node scripts/build-rules.js`.**
 
 ---
@@ -72,6 +72,24 @@ The Stop hook runs after every assistant response. It scans `last_assistant_mess
 This is **response-level enforcement** — it catches unverified claims in text output, not just in tool calls. Traditional hooks (PreToolUse, PostToolUse) only fire at tool boundaries. The Stop hook fires after every response, covering the gap where an agent can make false claims without triggering any tool.
 
 **Why**: An agent can think wrong, plan wrong, and report wrong — all without triggering a single tool call. Stop hooks close this gap by auditing the final output before it reaches the user. This is mechanical enforcement at the response level, not a suggestion.
+
+---
+
+## 006. No sloppy work — think before you write
+*Severity: critical*
+
+Think before every output. Don't rush. Don't write the first thing that comes to mind. Don't respond without reading.
+
+- **Read before writing**: Understand the full context — partial understanding = flawed output.
+- **Think before writing**: Is the tone right? Is the structure clear? Does it flow? Look from the reader's perspective.
+- **Quality over speed**: Fast response doesn't mean sloppy response. 10 seconds of thought beats 10 minutes of fixing.
+- **Question every line**: "Is this sentence actually correct? Does the flow make sense? Is the tone consistent? Is anything unnecessary?"
+- **First draft is not final**: Re-read your output before delivering. Critique your own work before the user sees it.
+- **No half-thought delivery**: Thinking about half and skipping the rest is worse than not thinking at all — it creates the illusion of thoughtfulness.
+
+This rule applies to everything — code, text, README, commit messages, user responses.
+
+Why: Sloppy work creates rework. A 30-second review before delivery catches mistakes that cost 30 minutes to fix after delivery.
 
 ---
 
