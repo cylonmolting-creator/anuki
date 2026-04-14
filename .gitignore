@@ -18,7 +18,8 @@ workspace/*/memory/procedural/*.jsonl
 workspace/*/sessions/
 apps/
 sessions/
-memory/
+workspace/*/memory/
+/memory/
 .claude/
 .security/
 test-results/
