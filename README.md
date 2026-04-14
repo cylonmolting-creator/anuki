@@ -468,7 +468,7 @@ We did exactly this during development — had AI analyze the codebase with zero
 
 The quick scan said: *"Those aren't things you add because they sound cool on a README; you add them because you lost data at 3am."* And then: **"Star."**
 
-We left the honest version. An AI agent platform that gets fact-checked by AI — inception all the way down. Trust your AI, bro. 🤝
+We left the honest version. An AI agent platform that gets fact-checked by AI — inception all the way down. Trust your AI, bro. (:
 
 ---
 
