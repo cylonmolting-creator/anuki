@@ -470,16 +470,14 @@ The quick scan said: *"Those aren't things you add because they sound cool on a 
 
 We left the honest version. An AI agent platform that gets fact-checked by AI — inception all the way down.
 
-But here's the thing: **we're not just saying "don't trust us" — we built agents you don't have to trust.** That's the whole point.
+But here's the other half: **we built agents you don't have to trust.** You trust the system that constrains them:
 
 - Soul files define what an agent can and can't do — before it runs
 - Stop hooks block bad responses before they reach you — not after
 - Watchdog kills stuck processes. Circuit breaker disables failing agents
 - State is crash-safe. Conversations survive restarts
 
-You don't trust the agent's word. You trust the system that constrains it.
-
-Don't trust us — verify us. Then build agents your users can trust too.
+Don't trust us — verify us. Don't trust the agent — trust what holds it in place.
 
 ---
 
