@@ -468,7 +468,9 @@ We did exactly this during development — had AI analyze the codebase with zero
 
 The quick scan said: *"Those aren't things you add because they sound cool on a README; you add them because you lost data at 3am."* And then: **"Star."**
 
-We left the honest version. An AI agent platform that gets fact-checked by AI — inception all the way down. Trust your AI, bro. (:
+But here's the other side: **we're not just asking you to verify us — we're giving you agents you can actually trust.** Every agent runs with soul files that define exactly what it can and can't do. Rules are enforced by stop hooks that block the response before it reaches you — not after. The watchdog kills stuck processes. The circuit breaker disables failing agents. State is crash-safe. Conversations survive restarts. You don't trust the agent's word — you trust the system that constrains it.
+
+Don't trust us. Verify us. And then build agents your users can trust too. (:
 
 ---
 
