@@ -1272,6 +1272,44 @@ class AgentExecutor {
     // This prevents cancelling active work when user sends follow-up messages,
     // AND prevents parallel processes when BRRR/cron uses different conversationId than UI.
     const _queueConvId = conversationId; // queue key = this conversation
+
+    // STALE STATE CLEANUP: If activeProcesses has an entry but the process is dead,
+    // clean it up before checking busy. Prevents "stuck busy" desync after process
+    // crash/SIGTERM where exit handler didn't fire (user messages would queue forever).
+    const _staleProc = this.activeProcesses.get(conversationId);
+    if (_staleProc && _staleProc.pid) {
+      try {
+        process.kill(_staleProc.pid, 0); // probe — alive?
+      } catch (_) {
+        // Process is dead — clean up stale state
+        this.logger.warn('AgentExecutor', `Cleaned stale activeProcess for conv ${conversationId} (PID ${_staleProc.pid} dead)`);
+        this.activeProcesses.delete(conversationId);
+        this._activeJobs.delete(conversationId);
+        if (this._workspaceLocks.get(workspaceId)?.conversationId === conversationId) {
+          this._workspaceLocks.delete(workspaceId);
+        }
+      }
+    }
+    // Also clean stale workspace locks (different conv but its process is dead)
+    const _staleLock = this._workspaceLocks.get(workspaceId);
+    if (_staleLock && _staleLock.conversationId !== conversationId) {
+      const _lockProc = this.activeProcesses.get(_staleLock.conversationId);
+      if (_lockProc && _lockProc.pid) {
+        try {
+          process.kill(_lockProc.pid, 0);
+        } catch (_) {
+          this.logger.warn('AgentExecutor', `Cleaned stale workspaceLock for ${workspaceId} (conv ${_staleLock.conversationId} PID ${_lockProc.pid} dead)`);
+          this.activeProcesses.delete(_staleLock.conversationId);
+          this._activeJobs.delete(_staleLock.conversationId);
+          this._workspaceLocks.delete(workspaceId);
+        }
+      } else if (!_lockProc) {
+        // Lock without process entry — definitely stale
+        this.logger.warn('AgentExecutor', `Cleaned orphan workspaceLock for ${workspaceId} (no process entry)`);
+        this._workspaceLocks.delete(workspaceId);
+      }
+    }
+
     const _wsLockCheck = this._workspaceLocks.get(workspaceId);
     const _isBusyConv = this.activeProcesses.has(conversationId);
     const _isBusyWorkspace = _wsLockCheck && _wsLockCheck.conversationId !== conversationId;
