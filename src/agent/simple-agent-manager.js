@@ -685,12 +685,21 @@ function createAgent(config, options = {}) {
     setupAgentWorkspace(agent);
   }
 
-  // Create .app bundle
-  try {
-    agent.appPath = createAppBundle(agent);
-  } catch (e) {
-    console.error('Error creating app bundle:', e);
-    throw new Error('Failed to create app bundle');
+  // Create .app bundle (opt-in — off by default).
+  // Set ANUKI_CREATE_APP_BUNDLES=1 to enable. Disabled by default because:
+  // (a) macOS Finder indexes every new .app → spam creation freezes the UI
+  // (b) most users interact via the web UI and never need a native app bundle
+  // (c) the same functionality is reachable through `npm start` + browser
+  if (process.env.ANUKI_CREATE_APP_BUNDLES === '1') {
+    try {
+      agent.appPath = createAppBundle(agent);
+    } catch (e) {
+      // Non-fatal — the agent is still created, it just doesn't get a macOS app icon.
+      console.error('App bundle creation failed (non-fatal):', e.message);
+      agent.appPath = null;
+    }
+  } else {
+    agent.appPath = null;
   }
 
   // Save to agents list
@@ -698,11 +707,15 @@ function createAgent(config, options = {}) {
 
   saveAgents(data);
 
-  // Refresh Finder/Dock
-  try {
-    spawn('killall', ['Finder', 'Dock']);
-  } catch (e) {
-    // Ignore
+  // Refresh Finder/Dock — only if we actually wrote an app bundle.
+  // Otherwise this is a massive UX hit (killing Finder for every agent
+  // creation froze the desktop during bulk creation).
+  if (agent.appPath) {
+    try {
+      spawn('killall', ['Finder', 'Dock']);
+    } catch (e) {
+      // Ignore
+    }
   }
 
   return agent;
