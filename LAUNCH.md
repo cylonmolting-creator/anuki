@@ -57,7 +57,7 @@ Stack: Node.js, Claude CLI, WebSocket, Express. No database needed.
 
 BYOK (bring your own key) — you need an Anthropic API key or Claude CLI installed.
 
-GitHub: https://github.com/YOUR-USERNAME/anuki
+GitHub: https://github.com/cylonmolting-creator/anuki
 
 ---
 
@@ -105,7 +105,7 @@ With these 3, you can create unlimited specialized agents. A code reviewer. A re
 ### Quick Start
 
 ```bash
-git clone https://github.com/YOUR-USERNAME/anuki.git
+git clone https://github.com/cylonmolting-creator/anuki.git
 cd anuki
 cp .env.example .env
 npm install
@@ -128,6 +128,6 @@ This is v0.1 — the MVP. Planned:
 - Visual workflow builder
 - Multi-user support
 
-GitHub: https://github.com/YOUR-USERNAME/anuki
+GitHub: https://github.com/cylonmolting-creator/anuki
 
 MIT licensed. PRs welcome.
