@@ -10,7 +10,7 @@ Anuki gives you the building blocks. You build the team. Three core agents ship 
 
 ## Why Anuki?
 
-> **Niche**: The only multi-agent framework that combines **production infrastructure** with **response-level verification**. We borrowed patterns from databases (write-ahead log), microservices (circuit breakers), and message queues (pending completions with exactly-once delivery) — and applied them to AI agents. Your agents crash-recover, self-heal, and survive restarts. And when an agent says "this function is unused", a Stop hook runs `grep` to check — if the claim is false, the response gets blocked. No other framework verifies what agents *claim*, not just what they *do*.
+> **Niche**: The only multi-agent framework that combines **production infrastructure** with **response-level verification**. We borrowed patterns from microservices (circuit breakers), message queues (pending completions), and operations engineering (health watchdog, graceful shutdown) — and applied them to AI agents. Your agents self-heal and survive restarts. And when an agent says "this function is unused", a Stop hook runs `grep` to check — if the claim is false, the response gets blocked. No other framework verifies what agents *claim*, not just what they *do*.
 
 Most multi-agent frameworks require you to define agents in code. Anuki takes a different approach: **agents create agents**. You describe what you need in natural language, and the system builds it — complete with identity, personality, tools, safety rules, and memory.
 
@@ -23,14 +23,14 @@ Most multi-agent frameworks require you to define agents in code. Anuki takes a 
 | Cognitive memory (3 layers) | Yes | Partial | No | No | No |
 | Response-level claim verification | **Yes** | No | No | No | No |
 | Mechanical rule enforcement (SSOT) | Yes | No | No | No | No |
-| Crash recovery (WAL + pending completions) | **Yes** | No | Partial | No | No |
+| Crash recovery (pending completions) | **Yes** | No | Partial | No | No |
 | Circuit breaker per agent | **Yes** | No | No | No | No |
 | Health watchdog + orphan cleanup | **Yes** | No | No | No | No |
 | Inter-agent messaging + loop detection | **Yes** | Partial | Partial | Partial | No |
 | Multi-LLM provider support | Yes | Yes | Yes | Yes | Yes |
 | Zero-dependency frontend | Yes | No | No | No | No |
 
-> Most AI agent frameworks focus on the AI part — prompting, memory, tool use. Anuki also brings **production infrastructure** to the agent world: patterns borrowed from databases (write-ahead log), microservices (circuit breakers), and message queues (pending completions with exactly-once delivery). These aren't AI innovations — they're battle-tested engineering patterns applied to agents for the first time.
+> Most AI agent frameworks focus on the AI part — prompting, memory, tool use. Anuki also brings **production infrastructure** to the agent world: patterns borrowed from microservices (circuit breakers), message queues (pending completions), and operations engineering (health watchdog, orphan cleanup, graceful shutdown). These aren't AI innovations — they're battle-tested engineering patterns applied to agents for the first time.
 
 ### Built for people who are new to AI agents
 
@@ -42,7 +42,7 @@ Anuki eliminates these failure modes at the system level — so you don't have t
 |----------------|------------------------|-----------------|
 | Agent gets stuck in a loop | Nothing — you debug it | Loop detection kills it automatically |
 | Agent claims something false | Nothing — you trust it | Stop hook verifies the claim before you see it |
-| System crashes mid-conversation | Data lost | WAL replays state, pending completions deliver your response |
+| System crashes mid-conversation | Data lost | Atomic writes protect state, pending completions deliver your response |
 | An agent keeps failing | Errors pile up | Circuit breaker disables it, tests periodically, auto-recovers |
 | Process becomes a zombie | You open terminal and kill it | Health watchdog cleans it up every 60 seconds |
 | You disconnect mid-stream | Output lost | Resume buffer replays what you missed |
@@ -312,7 +312,7 @@ No manual switching needed. The system figures out where your message should go.
 
 Most agent frameworks assume a managed environment. Anuki runs as a persistent service and handles its own reliability:
 
-**Crash Recovery** — Write-ahead log (WAL) protects state files. If the system crashes mid-operation, uncommitted entries are replayed on boot. Active jobs, sessions, and pending completions survive unclean shutdowns.
+**Crash Recovery** — Atomic file writes (temp + fsync + rename) protect all state files from corruption. Active jobs, sessions, and pending completions are persisted after every state change. No partial writes, no corrupted JSON.
 
 **Pending Completions** — If the system restarts while an agent is mid-response, the response is queued and delivered to the user when they reconnect. No lost messages. Borrowed from message queue "exactly-once delivery" patterns.
 
@@ -454,6 +454,21 @@ Anuki includes 14 layers of session bloat prevention — keeping conversations l
 | IDs | ULID + UUID |
 
 **Zero database dependency.** Everything is files — JSON for state, Markdown for identity. Easy to inspect, version control, and backup.
+
+---
+
+## Don't take our word for it — ask your AI
+
+This is a platform built by AI agents, for AI agents. So instead of trusting our README, do this:
+
+> Copy this repo's URL and ask your AI (ChatGPT, Claude, Gemini, whatever you use):
+> *"Analyze this GitHub repo and tell me what's actually impressive vs what's marketing: https://github.com/cylonmolting-creator/anuki"*
+
+We did exactly this during development — had AI analyze the codebase with zero context, both a deep code review and a quick first-impression scan. The deep review found genuinely novel ideas (Stop hooks, SSOT rule pipeline, circuit breakers for agents) and also caught us overstating a feature we hadn't shipped yet. We fixed it before you read this.
+
+The quick scan said: *"Those aren't things you add because they sound cool on a README; you add them because you lost data at 3am."* And then: **"Star."**
+
+We left the honest version. An AI agent platform that gets fact-checked by AI — it's inception all the way down.
 
 ---
 
