@@ -434,19 +434,26 @@ function createIconFromAvatar(avatarPath, icnsPath, safeName) {
   }
 }
 
-// Helper: Copy default icon
+// Optional default iconset — if a project ships one at assets/default.iconset,
+// agents get a branded .app icon. If not (MVP default), agents are created
+// without a custom icon and macOS renders the generic one. Non-fatal either way.
+const ICON_PATH = path.join(MASTER_DIR, 'assets', 'default.iconset');
+
+// Helper: Copy default icon (no-op if no iconset is shipped)
 function copyDefaultIcon(icnsPath, safeName) {
-  if (fs.existsSync(ICON_PATH)) {
-    const tempIconSet = path.join('/tmp', `${safeName}-default.iconset`);
-    try {
-      fs.cpSync(ICON_PATH, tempIconSet, { recursive: true });
-      execSync(`iconutil -c icns "${tempIconSet}" -o "${icnsPath}"`, { stdio: 'ignore' });
+  if (!fs.existsSync(ICON_PATH)) {
+    // No default iconset — leave the bundle without an icon, proceed silently.
+    return;
+  }
+  const tempIconSet = path.join('/tmp', `${safeName}-default.iconset`);
+  try {
+    fs.cpSync(ICON_PATH, tempIconSet, { recursive: true });
+    execSync(`iconutil -c icns "${tempIconSet}" -o "${icnsPath}"`, { stdio: 'ignore' });
+    fs.rmSync(tempIconSet, { recursive: true });
+  } catch (e) {
+    console.error('Default icon creation warning:', e.message);
+    if (fs.existsSync(tempIconSet)) {
       fs.rmSync(tempIconSet, { recursive: true });
-    } catch (e) {
-      console.error('Default icon creation warning:', e.message);
-      if (fs.existsSync(tempIconSet)) {
-        fs.rmSync(tempIconSet, { recursive: true });
-      }
     }
   }
 }
