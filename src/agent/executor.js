@@ -1625,28 +1625,9 @@ class AgentExecutor {
       this.logger.info('AgentExecutor', `New session: full prompt (${systemPrompt.length} chars)`, { requestId });
     }
 
-    // Session resumption — only for providers that support it
-    // Validate session file exists on disk before attempting resume — prevents code 1 crash
-    // when session belongs to a different workspace (cross-workspace session contamination)
-    if (effectiveSessionId && this.provider.supportsResume()) {
-      const cwdOverride = workspace.cwdOverride ? workspace.cwdOverride.replace(/^~/, process.env.HOME) : null;
-      const projectDirName = '-' + (cwdOverride || workspaceDir).replace(/[/.]/g, '-').replace(/^-/, '');
-      const sessionFile = path.join(process.env.HOME, '.claude', 'projects', projectDirName, effectiveSessionId + '.jsonl');
-      if (!fs.existsSync(sessionFile)) {
-        this.logger.warn('AgentExecutor', `Session file missing, starting new session (was: ${effectiveSessionId}, expected: ${sessionFile})`);
-        effectiveSessionId = null;
-        if (sessionMeta) sessionMeta.sessionId = null;
-      } else {
-        this.logger.info('AgentExecutor', `Resuming session: ${effectiveSessionId}`);
-      }
-    } else if (effectiveSessionId && !this.provider.supportsResume()) {
-      this.logger.info('AgentExecutor', `Provider '${this.provider.name}' does not support session resume — starting new session`);
-      effectiveSessionId = null;
-      if (sessionMeta) sessionMeta.sessionId = null;
-    }
-
-    // Resolve workspaceDir BEFORE buildArgs (provider needs it for spawn cwd)
-    // cwdOverride sets the working directory for the CLI process
+    // Resolve workspaceDir BEFORE session resumption and buildArgs
+    // (both use it — session path resolution, provider spawn cwd).
+    // cwdOverride sets the working directory for the CLI process.
     let workspaceDir = this.workspaceManager.getWorkspacePath
       ? this.workspaceManager.getWorkspacePath(effectiveWorkspaceId)
       : process.env.HOME;
@@ -1683,6 +1664,26 @@ class AgentExecutor {
     if (!workspaceDir || !fs.existsSync(workspaceDir)) {
       this.logger.warn('AgentExecutor', `Workspace dir not found: ${workspaceDir}, using HOME`);
       workspaceDir = process.env.HOME;
+    }
+
+    // Session resumption — only for providers that support it
+    // Validate session file exists on disk before attempting resume — prevents code 1 crash
+    // when session belongs to a different workspace (cross-workspace session contamination)
+    if (effectiveSessionId && this.provider.supportsResume()) {
+      const cwdOverride = workspace.cwdOverride ? workspace.cwdOverride.replace(/^~/, process.env.HOME) : null;
+      const projectDirName = '-' + (cwdOverride || workspaceDir).replace(/[/.]/g, '-').replace(/^-/, '');
+      const sessionFile = path.join(process.env.HOME, '.claude', 'projects', projectDirName, effectiveSessionId + '.jsonl');
+      if (!fs.existsSync(sessionFile)) {
+        this.logger.warn('AgentExecutor', `Session file missing, starting new session (was: ${effectiveSessionId}, expected: ${sessionFile})`);
+        effectiveSessionId = null;
+        if (sessionMeta) sessionMeta.sessionId = null;
+      } else {
+        this.logger.info('AgentExecutor', `Resuming session: ${effectiveSessionId}`);
+      }
+    } else if (effectiveSessionId && !this.provider.supportsResume()) {
+      this.logger.info('AgentExecutor', `Provider '${this.provider.name}' does not support session resume — starting new session`);
+      effectiveSessionId = null;
+      if (sessionMeta) sessionMeta.sessionId = null;
     }
 
     // Build provider-specific spawn config (workspaceDir now defined above)
