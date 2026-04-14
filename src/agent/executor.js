@@ -7,6 +7,7 @@ const PerformanceProfiler = require('../core/performance-profiler');
 const SandboxManager = require('../core/sandbox-manager');
 const { atomicWriteFileSync } = require('../utils/atomic-write');
 const BASE_DIR = require('../utils/base-dir');
+const { createProvider, getAvailableProviders, validateAllProviders } = require('./providers');
 
 // Soul file cache (5-min TTL)
 const SOUL_CACHE_TTL = 300000; // 5 minutes
@@ -256,8 +257,13 @@ class AgentExecutor {
     this._activeJobs = new Map(); // conversationId -> { workspaceId, sessionId, userMessage, channel, userId, startedAt }
     this._pendingMessages = new Map(); // conversationId -> [{ message, images, onEvent, onComplete, onError }]
     this._workspaceLocks = new Map(); // workspaceId -> { conversationId, startedAt } — CRITICAL: prevents parallel CLI writes to same workspace
-    this.claudePath = process.env.CLAUDE_PATH || '/opt/homebrew/bin/claude';
     this._baseDir = BASE_DIR;
+
+    // LLM Provider initialization
+    const providerName = process.env.LLM_PROVIDER || 'claude';
+    const providerConfig = this._loadProviderConfig(providerName);
+    this.provider = createProvider(providerName, providerConfig, logger);
+    this.claudePath = this.provider.name === 'claude' ? this.provider.claudePath : null;
 
     // Error analysis (roadmap 9.4)
     // Pass 'this' so ErrorAnalyzer can use AgentExecutor for LLM analysis
@@ -288,6 +294,53 @@ class AgentExecutor {
 
     // Session tracking for idle/daily reset (ONEMLI-4)
     this.sessions = this._loadSessions(); // sessionKey -> { lastActivity, resetCount, sessionId }
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // LLM PROVIDER MANAGEMENT
+  // ═══════════════════════════════════════════════════════════
+
+  _loadProviderConfig(providerName) {
+    try {
+      const configFile = path.join(this._baseDir, 'config.json');
+      if (fs.existsSync(configFile)) {
+        const config = JSON.parse(fs.readFileSync(configFile, 'utf8'));
+        if (config.agent && config.agent.providers && config.agent.providers[providerName]) {
+          return config.agent.providers[providerName];
+        }
+      }
+    } catch { /* use defaults */ }
+    return {};
+  }
+
+  /**
+   * Get provider status for health checks and API responses
+   * @returns {Promise<object>} Provider info including available providers and their status
+   */
+  async getProviderStatus() {
+    const currentProvider = this.provider.name;
+    try {
+      const configFile = path.join(this._baseDir, 'config.json');
+      let providersConfig = {};
+      if (fs.existsSync(configFile)) {
+        const config = JSON.parse(fs.readFileSync(configFile, 'utf8'));
+        providersConfig = (config.agent && config.agent.providers) || {};
+      }
+      const statuses = await validateAllProviders(providersConfig, this.logger);
+      return {
+        active: currentProvider,
+        supportsAgentic: this.provider.supportsAgentic(),
+        supportsResume: this.provider.supportsResume(),
+        providers: statuses
+      };
+    } catch (e) {
+      return {
+        active: currentProvider,
+        supportsAgentic: this.provider.supportsAgentic(),
+        supportsResume: this.provider.supportsResume(),
+        providers: [{ name: currentProvider, configured: true, error: null }]
+      };
+    }
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -1534,67 +1587,38 @@ class AgentExecutor {
       this.logger.info('AgentExecutor', `New session: full prompt (${systemPrompt.length} chars)`, { requestId });
     }
 
-    // Prepare Claude Code CLI command
-    const args = [
-      '--dangerously-skip-permissions',
-      '--verbose',
-      '--output-format', 'stream-json',
-      '--include-partial-messages'
-    ];
-
-    // Model selection
-    args.push('--model', selectedModel);
-
-    // Fallback model for rate limits
-    if (selectedModel === 'opus') {
-      args.push('--fallback-model', 'sonnet');
-    } else if (selectedModel === 'sonnet') {
-      args.push('--fallback-model', 'haiku');
-    }
-
-    // Turn limits — only set when caller explicitly provides maxTurns
-    // Default: no limit (let agent finish). Self-improve cycles use 200 to prevent runaway.
-    if (maxTurns && Number.isFinite(maxTurns) && maxTurns > 0) {
-      args.push('--max-turns', String(maxTurns));
-    }
-
-    // Inject system prompt
-    if (systemPrompt) {
-      args.push('--append-system-prompt', systemPrompt);
-    }
-
-    // Session resumption (with idle/daily reset applied)
+    // Session resumption — only for providers that support it
     // Validate session file exists on disk before attempting resume — prevents code 1 crash
     // when session belongs to a different workspace (cross-workspace session contamination)
-    if (effectiveSessionId) {
+    if (effectiveSessionId && this.provider.supportsResume()) {
       const cwdOverride = workspace.cwdOverride ? workspace.cwdOverride.replace(/^~/, process.env.HOME) : null;
       const projectDirName = '-' + (cwdOverride || workspaceDir).replace(/[/.]/g, '-').replace(/^-/, '');
       const sessionFile = path.join(process.env.HOME, '.claude', 'projects', projectDirName, effectiveSessionId + '.jsonl');
-      if (fs.existsSync(sessionFile)) {
-        args.push('--resume', effectiveSessionId);
-        this.logger.info('AgentExecutor', `Resuming session: ${effectiveSessionId}`);
-      } else {
+      if (!fs.existsSync(sessionFile)) {
         this.logger.warn('AgentExecutor', `Session file missing, starting new session (was: ${effectiveSessionId}, expected: ${sessionFile})`);
         effectiveSessionId = null;
         if (sessionMeta) sessionMeta.sessionId = null;
+      } else {
+        this.logger.info('AgentExecutor', `Resuming session: ${effectiveSessionId}`);
       }
+    } else if (effectiveSessionId && !this.provider.supportsResume()) {
+      this.logger.info('AgentExecutor', `Provider '${this.provider.name}' does not support session resume — starting new session`);
+      effectiveSessionId = null;
+      if (sessionMeta) sessionMeta.sessionId = null;
     }
 
-    // Handle images: append image paths to message so Claude can read them via Read tool
-    let messageWithImages = safeMessage;
-    if (images && images.length > 0) {
-      const validImages = images.filter(p => fs.existsSync(p));
-      if (validImages.length > 0) {
-        const imageList = validImages.map(p => `- ${p}`).join('\n');
-        messageWithImages = safeMessage + '\n\n[Kullanıcı şu medya dosyalarını gönderdi - lütfen Read tool ile oku ve analiz et:]\n' + imageList;
-        this.logger.info('AgentExecutor', `Attached ${validImages.length} image(s) to message`);
-      }
-    }
+    // Build provider-specific spawn config
+    const spawnConfig = this.provider.buildArgs({
+      message: safeMessage,
+      systemPrompt,
+      model: selectedModel,
+      sessionId: effectiveSessionId,
+      maxTurns,
+      images,
+      workspaceDir
+    });
 
-    // Add the message
-    args.push('-p', messageWithImages);
-
-    this.logger.info('AgentExecutor', `Executing Claude for workspace ${effectiveWorkspaceId}`, { requestId });
+    this.logger.info('AgentExecutor', `Executing ${this.provider.name} for workspace ${effectiveWorkspaceId}`, { requestId });
 
     // PERFORMANCE PROFILING: Record context assembly time (roadmap 10.3)
     const contextAssemblyTime = Date.now() - contextAssemblyStart;
@@ -1659,21 +1683,16 @@ class AgentExecutor {
       }
     }
 
-    // Remove CLAUDECODE env var to prevent "nested session" error
-    // when Anuki itself is running inside a Claude Code session
+    // Spawn LLM process via provider
     const cleanEnv = { ...process.env };
-    delete cleanEnv.CLAUDECODE;
+    delete cleanEnv.CLAUDECODE; // Prevent nested session error for Claude CLI
 
-    const claudeProcess = spawn(this.claudePath, args, {
-      cwd: workspaceDir,
-      env: cleanEnv,
-      stdio: ['ignore', 'pipe', 'pipe'],
-      detached: true  // Create new process group — enables killing all descendants on cleanup
-    });
+    const spawnResult = this.provider.spawnProcess(spawnConfig, workspaceDir, cleanEnv);
+    const claudeProcess = spawnResult.process;
 
     if (!claudeProcess.stdout || !claudeProcess.stderr) {
-      this.logger.error('AgentExecutor', `Failed to spawn Claude process (stdout/stderr null)`);
-      const error = new Error('Failed to spawn Claude process');
+      this.logger.error('AgentExecutor', `Failed to spawn ${this.provider.name} process (stdout/stderr null)`);
+      const error = new Error(`Failed to spawn ${this.provider.name} process`);
       if (requestId && requestTracer) {
         requestTracer.endTrace(requestId, 'error');
       }

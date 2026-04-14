@@ -36,9 +36,25 @@ function applyEnvOverrides(config) {
   // Port
   if (process.env.PORT) c.port = parseInt(process.env.PORT) || c.port;
 
-  // Agent
-  if (process.env.CLAUDE_PATH) c.agent.claudePath = process.env.CLAUDE_PATH;
+  // LLM Provider
+  if (process.env.LLM_PROVIDER) c.agent.provider = process.env.LLM_PROVIDER;
+
+  // Claude provider
+  if (!c.agent.providers) c.agent.providers = {};
+  if (!c.agent.providers.claude) c.agent.providers.claude = {};
+  if (process.env.CLAUDE_PATH) c.agent.providers.claude.path = process.env.CLAUDE_PATH;
   if (process.env.ANTHROPIC_API_KEY) c.agent.apiKey = process.env.ANTHROPIC_API_KEY;
+
+  // OpenAI provider
+  if (!c.agent.providers.openai) c.agent.providers.openai = {};
+  if (process.env.OPENAI_API_KEY) c.agent.providers.openai.apiKey = process.env.OPENAI_API_KEY;
+  if (process.env.OPENAI_MODEL) c.agent.providers.openai.model = process.env.OPENAI_MODEL;
+  if (process.env.OPENAI_BASE_URL) c.agent.providers.openai.baseUrl = process.env.OPENAI_BASE_URL;
+
+  // Ollama provider
+  if (!c.agent.providers.ollama) c.agent.providers.ollama = {};
+  if (process.env.OLLAMA_URL) c.agent.providers.ollama.url = process.env.OLLAMA_URL;
+  if (process.env.OLLAMA_MODEL) c.agent.providers.ollama.model = process.env.OLLAMA_MODEL;
 
   // Logging
   if (process.env.LOG_LEVEL) c.logging.level = process.env.LOG_LEVEL.toLowerCase();
@@ -84,7 +100,16 @@ function loadFromFile() {
 const DEFAULTS = {
   port: 3000,
   gateway: { http: { enabled: true }, websocket: { enabled: true }, health: { enabled: true } },
-  agent: { model: 'claude-sonnet-4-20250514', agentic: true, claudePath: 'claude' },
+  agent: {
+    provider: 'claude',
+    model: 'claude-sonnet-4-20250514',
+    agentic: true,
+    providers: {
+      claude: { path: 'claude' },
+      openai: { model: 'gpt-4o' },
+      ollama: { model: 'llama3.1', url: 'http://localhost:11434' }
+    }
+  },
   channels: {
     webchat: { enabled: true }
   },

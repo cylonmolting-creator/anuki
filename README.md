@@ -43,12 +43,18 @@ Most multi-agent frameworks require you to define agents in code. Anuki takes a 
 
 ## Quick Start
 
-**Prerequisites**: [Node.js](https://nodejs.org) 18+ and [Claude CLI](https://docs.anthropic.com/en/docs/claude-cli) installed.
+**Prerequisites**: [Node.js](https://nodejs.org) 18+ and one of the following LLM backends:
+
+| Provider | What you need | Best for |
+|----------|--------------|----------|
+| **[Claude Code CLI](https://docs.anthropic.com/en/docs/claude-cli)** (recommended) | `npm install -g @anthropic-ai/claude-code` + Anthropic API key | Full agentic mode — tool use, file editing, session resume |
+| **[OpenAI API](https://platform.openai.com)** | OpenAI API key | Chat completion with GPT-4o / GPT-4o-mini |
+| **[Ollama](https://ollama.ai)** | Ollama installed locally | Free local models (Llama, Mistral, Gemma, etc.) |
 
 ```bash
-git clone https://github.com/YOUR-USERNAME/anuki.git
+git clone https://github.com/cylonmolting-creator/anuki.git
 cd anuki
-cp .env.example .env    # Add your Anthropic API key
+cp .env.example .env    # Configure your LLM provider
 npm install
 npm start
 ```
@@ -57,15 +63,28 @@ Open `http://localhost:3000` in your browser. PROTOS will greet you.
 
 ### Configuration
 
-**`.env`** — Basic settings:
+**`.env`** — Choose your LLM provider:
 
 ```env
-PORT=3000                          # Server port
-CLAUDE_PATH=claude                 # Claude CLI path (auto-detected if on PATH)
-ANTHROPIC_API_KEY=sk-ant-...       # Your Anthropic API key (BYOK)
+# Pick one provider (default: claude)
+LLM_PROVIDER=claude
+
+# Claude (recommended — full agentic mode)
+# CLAUDE_PATH=claude
+# ANTHROPIC_API_KEY=sk-ant-...
+
+# OpenAI (chat mode)
+# OPENAI_API_KEY=sk-...
+# OPENAI_MODEL=gpt-4o
+
+# Ollama (free local models)
+# OLLAMA_URL=http://localhost:11434
+# OLLAMA_MODEL=llama3.1
 ```
 
-**`config.json`** — Advanced settings: model selection, security limits, memory decay, logging.
+**`config.json`** — Advanced settings: model selection, provider config, security limits, memory decay, logging.
+
+> **Note**: Claude Code CLI is the recommended provider. It enables full agentic capabilities — tool use, file editing, multi-turn reasoning, and session resume. Other providers work for chat but don't support agentic tool use.
 
 ---
 

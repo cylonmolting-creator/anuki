@@ -180,14 +180,37 @@ class HTTPServer {
     });
 
     // Health check (no auth — must be accessible for monitoring)
-    this.app.get('/api/health', (req, res) => {
-      res.json({
+    this.app.get('/api/health', async (req, res) => {
+      const health = {
         status: 'ok',
         version: require('../../package.json').version,
         nodeVersion: process.version,
         uptime: process.uptime(),
-        workspaces: this.workspaceManager.listWorkspaces().length
-      });
+        workspaces: this.workspaceManager.listWorkspaces().length,
+        provider: this.agentExecutor ? this.agentExecutor.provider.name : 'unknown'
+      };
+
+      // Include provider details if requested
+      if (req.query.providers === 'true' && this.agentExecutor) {
+        try {
+          health.providerStatus = await this.agentExecutor.getProviderStatus();
+        } catch { /* skip provider details on error */ }
+      }
+
+      res.json(health);
+    });
+
+    // ═══════════════ Provider Status ═══════════════
+    this.app.get('/api/providers', async (req, res) => {
+      if (!this.agentExecutor) {
+        return res.status(503).json({ error: 'Executor not initialized' });
+      }
+      try {
+        const status = await this.agentExecutor.getProviderStatus();
+        res.json(status);
+      } catch (err) {
+        res.status(500).json({ error: err.message });
+      }
     });
 
     // ═══════════════ System Health Dashboard ═══════════════
