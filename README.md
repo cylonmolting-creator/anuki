@@ -82,9 +82,55 @@ LLM_PROVIDER=claude
 # OLLAMA_MODEL=llama3.1
 ```
 
-**`config.json`** — Advanced settings: model selection, provider config, security limits, memory decay, logging.
+### Provider Setup (pick one)
 
-> **Note**: Claude Code CLI is the recommended provider. It enables full agentic capabilities — tool use, file editing, multi-turn reasoning, and session resume. Other providers work for chat but don't support agentic tool use.
+<details>
+<summary><strong>Claude Code CLI</strong> (recommended — full agentic mode)</summary>
+
+1. Install Claude Code CLI: `npm install -g @anthropic-ai/claude-code`
+2. Get an API key from [Anthropic Console](https://console.anthropic.com/)
+3. Run `claude` once to authenticate (it opens a browser)
+4. Edit `.env`:
+   ```env
+   LLM_PROVIDER=claude
+   ```
+5. Start Anuki: `npm start`
+
+Claude is the only provider with full agentic capabilities — tool use, file editing, multi-turn reasoning, and session resume. If unsure, start here.
+</details>
+
+<details>
+<summary><strong>OpenAI API</strong> (chat mode with GPT-4o)</summary>
+
+1. Get an API key from [OpenAI Platform](https://platform.openai.com/api-keys)
+2. Edit `.env`:
+   ```env
+   LLM_PROVIDER=openai
+   OPENAI_API_KEY=sk-...
+   OPENAI_MODEL=gpt-4o          # or gpt-4o-mini for lower cost
+   ```
+3. Start Anuki: `npm start`
+
+OpenAI provides chat completion — agents can respond but cannot use tools, edit files, or resume sessions.
+</details>
+
+<details>
+<summary><strong>Ollama</strong> (free, local, no API key needed)</summary>
+
+1. Install Ollama from [ollama.ai](https://ollama.ai)
+2. Pull a model: `ollama pull llama3.1` (or `mistral`, `gemma2`, etc.)
+3. Start Ollama: `ollama serve`
+4. Edit `.env`:
+   ```env
+   LLM_PROVIDER=ollama
+   OLLAMA_MODEL=llama3.1         # must match the model you pulled
+   ```
+5. Start Anuki: `npm start`
+
+Ollama runs entirely on your machine — no API key, no cloud, no cost. Agents can chat but cannot use tools or edit files.
+</details>
+
+**`config.json`** — Advanced settings: model selection, provider config, security limits, memory decay, logging.
 
 ---
 
