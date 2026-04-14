@@ -261,12 +261,15 @@ class HealthWatchdog {
           // Skip known processes (they're being tracked normally)
           if (knownPids.has(pid)) return false;
 
-          // Match: claude CLI processes OR node processes running Anuki code
+          // Match: claude CLI processes OR Anuki's own node process (path-specific)
           const isClaude = args.includes('claude') && !args.includes('Claude.app');
-          const isCylonNode = args.includes('node') && args.includes('src/index.js');
-          // Skip parallel universe processes — they're separate launchd-managed instances
-          const isParallelUniverse = args.includes('bishop-lab') || args.includes('otherside');
-          return (isClaude || isCylonNode) && !isParallelUniverse;
+          // CRITICAL: Only match THIS Anuki installation — resolve own install path from __dirname
+          // This prevents orphan sweep from killing unrelated node projects running 'src/index.js'
+          const pathModule = require('path');
+          const ownInstallPath = pathModule.resolve(__dirname, '..', '..');
+          const ownEntryPoint = pathModule.join(ownInstallPath, 'src/index.js');
+          const isOwnNode = args.includes(ownEntryPoint);
+          return isClaude || isOwnNode;
         })
         .map(parts => ({
           pid: parseInt(parts[0]),
