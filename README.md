@@ -389,7 +389,7 @@ anuki/
 └── data/                      # Runtime state (agents, jobs, conversations)
 ```
 
-**By the numbers**: 49 source files, ~24K lines of JavaScript, 9 dependencies.
+**By the numbers**: 55 source files, ~24K lines of JavaScript, 7 dependencies.
 
 ### Boot Sequence
 

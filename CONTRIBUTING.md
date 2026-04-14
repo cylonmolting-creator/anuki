@@ -67,7 +67,7 @@ See [README.md](README.md#ssot-rule-enforcement) for rule format details.
 
 Each agent has soul files in `workspace/<id>/soul/`. When modifying soul files:
 
-- Maintain the 7-type structure (IDENTITY, SOUL, MISSION, TOOLS, AGENTS, CODE_PROTOCOL, SAFETY)
+- Maintain the 7-type structure (IDENTITY, SOUL, MISSION, TOOLS, CODE_PROTOCOL, PROMPT_PROFILE, SAFETY)
 - Keep files focused and concise
 - Test with a real agent conversation
 
