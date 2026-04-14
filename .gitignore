@@ -2,6 +2,10 @@ node_modules/
 .env
 logs/
 data/*.json
+data/*.jsonl
+data/avatars/
+data/uploads/
+data/shared-contexts/
 !data/agents.json
 !data/workspaces.json
 *.pid
