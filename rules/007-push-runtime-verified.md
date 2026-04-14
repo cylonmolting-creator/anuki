@@ -5,7 +5,12 @@ severity: critical
 applies_to: [all]
 applies_to_tags: [code-writer]
 except: []
-enforcement: [soul-safety-inject]
+enforcement: [soul-safety-inject, pre-push-hook]
+push_check: runtime-verified
+push_start_cmd: "node src/index.js"
+push_health_url: "http://localhost:3000/api/health"
+push_timeout_sec: 10
+push_fail_message: "Rule 007: Anuki failed runtime verification. Server did not boot, /api/health did not return ok, or tests failed. Fix before pushing."
 created: 2026-04-14
 ---
 

@@ -71,8 +71,18 @@ Rules can be enforced at multiple levels. Choose based on what the rule needs to
 | `soul-safety-inject` | Injects rule into agent SAFETY.md | **Always include** — baseline |
 | `stop-hook-audit` | Audits every response for pattern matches | When rule needs **mechanical** enforcement on response text (false claims, unwanted behavior, banned phrases) |
 | `pretooluse-deny` | Blocks dangerous tool calls | When rule prevents dangerous edits/commands |
+| `pre-push-hook` | Runs runtime verification before `git push`; blocks push on failure | When rule prevents broken code from reaching the remote repo (production safety) |
 
-**How to choose**: If the rule says "never do X in responses" and you want **guaranteed mechanical enforcement** (not just a guideline), use `stop-hook-audit`. The Stop hook will scan every response for the forbidden patterns and block if found. Examples: blocking unverified claims, blocking questions to the user, blocking specific phrases.
+**Decision tree — which enforcement?**
+
+Ask yourself when writing a rule:
+1. **Just inject text into agent prompt?** → `soul-safety-inject` (most cases)
+2. **Pattern-match agent's response text and block?** → `stop-hook-audit` (claim honesty, banned phrases)
+3. **Block tool call (Edit/Bash) before it runs?** → `pretooluse-deny` (sandbox violation, dangerous command)
+4. **Block `git push` when runtime test fails?** → `pre-push-hook` (production safety, runtime-verified push)
+5. **Global reminder visible everywhere?** → `memory-md-inject` / `claude-md-inject` (not available in Anuki minimal build — rules/ uses only the first four)
+
+**If severity: critical AND rule affects what gets pushed to remote**, you MUST include `pre-push-hook` — otherwise the rule is just text with no mechanical safety net.
 
 **Most rules** use `enforcement: [soul-safety-inject]`.
 
@@ -84,6 +94,25 @@ Rules can be enforced at multiple levels. Choose based on what the rule needs to
 | `stop_patterns` | Yes | Keywords that trigger audit (case-insensitive) |
 | `stop_reason` | Yes | Message shown when response is blocked |
 | `stop_mode` | No | `claim` (default) = block when pattern found AND no evidence. `behavioral` = block whenever pattern found (no evidence check). Use `behavioral` for rules like "never ask questions" |
+
+**Pre-push rules** use `enforcement: [pre-push-hook, soul-safety-inject]` plus:
+
+| Field | Required | Description |
+|---|---|---|
+| `push_check` | Yes | Check type: `runtime-verified` (boot server + health + tests), `tests-only` (npm test), `health-only` (boot + health curl), `custom:<shell-cmd>` |
+| `push_start_cmd` | No | Server start command (default: `node src/index.js`) |
+| `push_health_url` | No | Health endpoint (default: `http://localhost:3000/api/health`) |
+| `push_timeout_sec` | No | Seconds to wait for server boot before curl (default: `10`) |
+| `push_fail_message` | Yes | Message shown in terminal when push is blocked |
+
+**`runtime-verified` check sequence** (what the generated `.git/hooks/pre-push` script does):
+1. Start server via `push_start_cmd` in background
+2. Wait `push_timeout_sec` seconds
+3. `curl push_health_url` must return HTTP 200 with `"status":"ok"`
+4. If `npm test` exists in package.json, run it; must exit 0
+5. All pass → exit 0 (push allowed)
+6. Any fail → exit 1 (push rejected) + print `push_fail_message`
+7. Always: kill server process + cleanup temp logs
 
 **Example — Standard rule:**
 ```markdown
