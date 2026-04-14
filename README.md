@@ -32,6 +32,23 @@ Most multi-agent frameworks require you to define agents in code. Anuki takes a 
 
 > Most AI agent frameworks focus on the AI part — prompting, memory, tool use. Anuki also brings **production infrastructure** to the agent world: patterns borrowed from databases (write-ahead log), microservices (circuit breakers), and message queues (pending completions with exactly-once delivery). These aren't AI innovations — they're battle-tested engineering patterns applied to agents for the first time.
 
+### Built for people who are new to AI agents
+
+AI agent platforms have a dirty secret: they break in ways that only engineers can fix. Agent stuck in a loop? Kill the process. System crashed? Lost your data. Agent hallucinated? Hope you noticed.
+
+Anuki eliminates these failure modes at the system level — so you don't have to know they exist:
+
+| What goes wrong | What other frameworks do | What Anuki does |
+|----------------|------------------------|-----------------|
+| Agent gets stuck in a loop | Nothing — you debug it | Loop detection kills it automatically |
+| Agent claims something false | Nothing — you trust it | Stop hook verifies the claim before you see it |
+| System crashes mid-conversation | Data lost | WAL replays state, pending completions deliver your response |
+| An agent keeps failing | Errors pile up | Circuit breaker disables it, tests periodically, auto-recovers |
+| Process becomes a zombie | You open terminal and kill it | Health watchdog cleans it up every 60 seconds |
+| You disconnect mid-stream | Output lost | Resume buffer replays what you missed |
+
+**You don't need to understand any of this.** `npm install`, `npm start`, open browser. The system handles the rest. Every mistake you could make as a beginner — the platform already prevents it.
+
 ---
 
 ## The 3 Core Agents
