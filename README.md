@@ -457,7 +457,7 @@ Anuki includes 14 layers of session bloat prevention — keeping conversations l
 
 ---
 
-## Don't take our word for it — ask your AI
+## Don't trust me, bro — trust your AI
 
 This is a platform built by AI agents, for AI agents. So instead of trusting our README, do this:
 
@@ -468,7 +468,7 @@ We did exactly this during development — had AI analyze the codebase with zero
 
 The quick scan said: *"Those aren't things you add because they sound cool on a README; you add them because you lost data at 3am."* And then: **"Star."**
 
-We left the honest version. An AI agent platform that gets fact-checked by AI — it's inception all the way down.
+We left the honest version. An AI agent platform that gets fact-checked by AI — inception all the way down. Trust your AI, bro. 🤝
 
 ---
 
