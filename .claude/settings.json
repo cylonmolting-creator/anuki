@@ -1,0 +1,72 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "BASEDIR=$(cd \"$(dirname \"$0\")/../..\" 2>/dev/null && pwd || echo \"$PWD\"); MEMDIR=\"$BASEDIR/workspace\"; content=''; for agent_dir in \"$MEMDIR\"/*/; do mem=\"${agent_dir}MEMORY.md\"; [ -f \"$mem\" ] && content=\"$content--- $(basename \"$agent_dir\") ---\n$(cat \"$mem\")\n\"; done; [ -z \"$content\" ] && exit 0; printf '%s' \"$content\" | jq -Rsc '{hookSpecificOutput:{hookEventName:\"SessionStart\",additionalContext:.}}'"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "BASEDIR=$(cd \"$(dirname \"$0\")/../..\" 2>/dev/null && pwd || echo \"$PWD\"); node \"$BASEDIR/scripts/build-rules.js\" --quiet 2>/dev/null || true"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -nc '{hookSpecificOutput:{hookEventName:\"UserPromptSubmit\",additionalContext:\"ENFORCED RULES:\\n1. No Assumptions (Rule 003): Before claiming anything, search 5 locations (src/, public/, workspace/, data/, *.md). Every claim needs file:line proof.\\n2. Honesty (Rule 004): Do not say done if not done. Verify before reporting.\\n3. No Destructive Tests (Rule 001): Never use real IDs in DELETE/PUT operations.\\n4. Clean Up (Rule 002): Leave no garbage after every task.\"}}'"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "# SSOT_PROMPT_REMINDER\njq -nc '{\"hookSpecificOutput\":{\"hookEventName\":\"UserPromptSubmit\",\"additionalContext\":\"ENFORCED RULES:\\n1. No destructive tests with real data (Rule 001): Never use real workspace IDs, agent IDs, or production data in DELETE or PUT tests. Always use temporary or mock IDs for\\n2. Clean up after every task (Rule 002): After every task, clean up temporary files, unused variables, debug logs, and test artifacts. Leaving garbage creates te\\n3. No assumptions — verify before claiming (Rule 003): Never claim something is true without evidence. Before saying \\\"X doesn't exist\\\" or \\\"Y is unused,\\\" search for it. Every c\\n4. Honesty — don't say done if it's not done (Rule 004): If a task isn't complete, don't say it is. If something is broken, admit it. If you're not sure, say so.\n\nEvery tick, ev\\n5. Response audit — block unverified claims (Rule 005): Every response is audited after completion. If it contains unverified claims, the response is blocked and must be rewrit\\n6. No sloppy work — think before you write (Rule 006): Think before every output. Don't rush. Don't write the first thing that comes to mind. Don't respond without reading.\n\n-\\n7. Push requires runtime verification — syntax check alone is not enough (Rule 007): Before committing and pushing any change to a repository, the change must be verified to work at runtime. `node -c` synt\"}}'"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "input=$(cat); fp=$(echo \"$input\" | jq -r \".tool_response.filePath // .tool_input.file_path // empty\"); ns=$(echo \"$input\" | jq -r \".tool_input.new_string // empty\"); if [ -z \"$fp\" ] || [ -z \"$ns\" ]; then exit 0; fi; if [ ! -f \"$fp\" ]; then jq -nc --arg f \"$fp\" '{hookSpecificOutput:{hookEventName:\"PostToolUse\",additionalContext:(\"WARNING: File does not exist on disk! \" + $f)}}'; exit 0; fi; sample=$(echo \"$ns\" | head -1 | sed 's/[^a-zA-Z0-9_ ]//g' | head -c 40); if [ -n \"$sample\" ] && ! grep -qF \"$sample\" \"$fp\" 2>/dev/null; then jq -nc --arg f \"$fp\" --arg s \"$sample\" '{hookSpecificOutput:{hookEventName:\"PostToolUse\",additionalContext:(\"WARNING: Edit may not have applied. Expected text not found in \" + $f + \": \" + $s)}}'; fi"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cmd=$(jq -r \".tool_input.command // empty\"); if echo \"$cmd\" | grep -qE \"^[[:space:]]*(pkill|killall)[[:space:]]\"; then jq -nc '{hookSpecificOutput:{hookEventName:\"PreToolUse\",additionalContext:\"BLOCKED: pkill/killall is dangerous. Use /api/safe-restart or /api/agents/:id/stop.\"}}'; exit 2; fi; if echo \"$cmd\" | grep -qE \"rm\\s+(-rf?\\s+)?(/|~|\\$HOME)\"; then jq -nc '{hookSpecificOutput:{hookEventName:\"PreToolUse\",additionalContext:\"BLOCKED: Destructive rm on home/root directory.\"}}'; exit 2; fi"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "# SSOT_STOP_AUDIT_005\nmsg=$(jq -r \".last_assistant_message // empty\")\nif [ -z \"$msg\" ]; then exit 0; fi\nhas_claim=$(echo \"$msg\" | grep -ciE \"unused|dead code|not needed|does not exist|not found|can be deleted|can be removed|unnecessary\" || true)\nhas_evidence=$(echo \"$msg\" | grep -cE \"\\.[a-z]{1,4}:[0-9]+|grep.*src/|verified|confirmed|PASS\" || true)\nif [ \"$has_claim\" -gt 0 ] && [ \"$has_evidence\" -eq 0 ]; then\n  echo '{\"decision\":\"block\",\"reason\":\"RULE 005 AUDIT: Response contains unverified claims. Verify with evidence (file:line, grep, test results) and rewrite.\"}'\nfi"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -20,6 +20,6 @@ apps/
 sessions/
 workspace/*/memory/
 /memory/
-.claude/
+.claude/settings.local.json
 .security/
 test-results/
