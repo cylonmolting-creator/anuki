@@ -1645,31 +1645,8 @@ class AgentExecutor {
       if (sessionMeta) sessionMeta.sessionId = null;
     }
 
-    // Build provider-specific spawn config
-    const spawnConfig = this.provider.buildArgs({
-      message: safeMessage,
-      systemPrompt,
-      model: selectedModel,
-      sessionId: effectiveSessionId,
-      maxTurns,
-      images,
-      workspaceDir
-    });
-
-    this.logger.info('AgentExecutor', `Executing ${this.provider.name} for workspace ${effectiveWorkspaceId}`, { requestId });
-
-    // PERFORMANCE PROFILING: Record context assembly time (roadmap 10.3)
-    const contextAssemblyTime = Date.now() - contextAssemblyStart;
-    this.performanceProfiler.recordLatency('context_assembly', contextAssemblyTime, {
-      conversationId,
-      model: selectedModel,
-      isResume,
-      messageLength: safeMessage.length,
-      promptSize: systemPrompt.length
-    });
-
-    // Spawn Claude process - ensure cwd exists
-    // cwdOverride sets the working directory for the Claude CLI process
+    // Resolve workspaceDir BEFORE buildArgs (provider needs it for spawn cwd)
+    // cwdOverride sets the working directory for the CLI process
     let workspaceDir = this.workspaceManager.getWorkspacePath
       ? this.workspaceManager.getWorkspacePath(effectiveWorkspaceId)
       : process.env.HOME;
@@ -1707,6 +1684,29 @@ class AgentExecutor {
       this.logger.warn('AgentExecutor', `Workspace dir not found: ${workspaceDir}, using HOME`);
       workspaceDir = process.env.HOME;
     }
+
+    // Build provider-specific spawn config (workspaceDir now defined above)
+    const spawnConfig = this.provider.buildArgs({
+      message: safeMessage,
+      systemPrompt,
+      model: selectedModel,
+      sessionId: effectiveSessionId,
+      maxTurns,
+      images,
+      workspaceDir
+    });
+
+    this.logger.info('AgentExecutor', `Executing ${this.provider.name} for workspace ${effectiveWorkspaceId}`, { requestId });
+
+    // PERFORMANCE PROFILING: Record context assembly time (roadmap 10.3)
+    const contextAssemblyTime = Date.now() - contextAssemblyStart;
+    this.performanceProfiler.recordLatency('context_assembly', contextAssemblyTime, {
+      conversationId,
+      model: selectedModel,
+      isResume,
+      messageLength: safeMessage.length,
+      promptSize: systemPrompt.length
+    });
 
     // Circuit breaker check — prevent spawning if agent is in failure loop
     if (this.supervisor) {
