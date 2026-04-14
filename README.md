@@ -16,16 +16,21 @@ Most multi-agent frameworks require you to define agents in code. Anuki takes a 
 
 **What makes it different:**
 
-| Feature | Anuki | CrewAI | LangGraph | AutoGen |
-|---------|-------|--------|-----------|---------|
-| Create agents via natural language | Yes (ENKI) | No | No | No |
-| Persistent agent identity (soul files) | 9 file types | No | No | No |
-| Cognitive memory (3 layers) | Yes | No | No | No |
-| Mechanical rule enforcement (SSOT) | Yes (UTU + build-rules) | No | No | No |
-| Response-level enforcement (Stop hooks) | **Yes** | No | No | No |
-| Agent-to-agent delegation | Yes | Partial | Partial | Yes |
-| Zero-dependency frontend | Yes | No | No | No |
-| BYOK (Bring Your Own Key) | Yes | Yes | Yes | Yes |
+| Feature | Anuki | CrewAI | LangGraph | AutoGen | Dify |
+|---------|-------|--------|-----------|---------|------|
+| Create agents via natural language | Yes (ENKI) | No | No | No | Partial |
+| Persistent agent identity (soul files) | 9 file types | No | No | No | No |
+| Cognitive memory (3 layers) | Yes | Partial | No | No | No |
+| Response-level claim verification | **Yes** | No | No | No | No |
+| Mechanical rule enforcement (SSOT) | Yes | No | No | No | No |
+| Crash recovery (WAL + pending completions) | **Yes** | No | Partial | No | No |
+| Circuit breaker per agent | **Yes** | No | No | No | No |
+| Health watchdog + orphan cleanup | **Yes** | No | No | No | No |
+| Inter-agent messaging + loop detection | **Yes** | Partial | Partial | Partial | No |
+| Multi-LLM provider support | Yes | Yes | Yes | Yes | Yes |
+| Zero-dependency frontend | Yes | No | No | No | No |
+
+> Most AI agent frameworks focus on the AI part — prompting, memory, tool use. Anuki also brings **production infrastructure** to the agent world: patterns borrowed from databases (write-ahead log), microservices (circuit breakers), and message queues (pending completions with exactly-once delivery). These aren't AI innovations — they're battle-tested engineering patterns applied to agents for the first time.
 
 ---
 
@@ -286,12 +291,23 @@ When you talk to any agent, the system analyzes your message for intent patterns
 
 No manual switching needed. The system figures out where your message should go.
 
-### Health & Resilience
+### Production Engineering — Built to Stay Up
 
-- **Health Watchdog** — Monitors heartbeats, detects stuck processes, sweeps orphans every 60s
-- **Circuit Breakers** — Per-agent failure tracking with exponential backoff (5 failures → circuit opens)
-- **Agent Supervisor** — Resource monitoring, automatic restart with rate limiting
-- **Graceful Shutdown** — SIGTERM/SIGINT handlers ensure clean process termination
+Most agent frameworks assume a managed environment. Anuki runs as a persistent service and handles its own reliability:
+
+**Crash Recovery** — Write-ahead log (WAL) protects state files. If the system crashes mid-operation, uncommitted entries are replayed on boot. Active jobs, sessions, and pending completions survive unclean shutdowns.
+
+**Pending Completions** — If the system restarts while an agent is mid-response, the response is queued and delivered to the user when they reconnect. No lost messages. Borrowed from message queue "exactly-once delivery" patterns.
+
+**Circuit Breakers** — Per-agent failure tracking (CLOSED → OPEN → HALF_OPEN). After 5 failures, the circuit opens and stops routing work to that agent. Periodic recovery tests restore the agent automatically. Standard microservices pattern, first applied to AI agents.
+
+**Health Watchdog** — Heartbeat monitoring, event loop lag detection, orphan process sweeps (every 60s), and periodic state checkpoints (every 30s). Detects stuck agents via `kill(pid, 0)` + zombie detection — not output timeouts (which would kill slow but working agents).
+
+**Graceful Shutdown** — Safe-restart API waits for active agents to finish before restarting. No killed jobs, no lost state. `SIGTERM`/`SIGINT` handlers clean up processes, save state, and exit cleanly.
+
+**WebSocket Resume Buffer** — If a client disconnects during streaming, output is buffered. When the client reconnects, the buffered response is replayed. No gaps in conversation.
+
+**Built-in Backup** — API endpoint creates timestamped backups of the entire system state. Automatic rotation prevents disk bloat. Boot-time backup ensures you always have a clean restore point.
 
 ---
 
@@ -412,7 +428,7 @@ Anuki includes 14 layers of session bloat prevention — keeping conversations l
 | Component | Technology |
 |-----------|-----------|
 | Runtime | Node.js 18+ |
-| AI Backend | Claude CLI — spawns Claude process per agent call |
+| AI Backend | Multi-provider (Claude CLI, OpenAI, Ollama) with auto model tiering |
 | Web Server | Express |
 | Real-time | WebSocket (ws) |
 | Frontend | Vanilla JS (single HTML file, zero framework) |
