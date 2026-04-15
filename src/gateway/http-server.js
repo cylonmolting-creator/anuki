@@ -2289,9 +2289,15 @@ class HTTPServer {
         }
 
         const { title, workspaceId } = req.body;
+        // Reject empty creations (e.g., a smoke/e2e test hitting this endpoint with `{}`).
+        // Without validation, such requests accumulate as blank "New Conversation"
+        // entries under ws=default on every restart — clutters the UI.
+        if (!workspaceId || typeof workspaceId !== 'string' || !workspaceId.trim()) {
+          return res.status(400).json({ error: 'workspaceId required' });
+        }
         const conversation = this.conversationManager.createConversation(
           title || 'New Conversation',
-          workspaceId || 'default'
+          workspaceId
         );
         res.json(conversation);
       } catch (e) {
