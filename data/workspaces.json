@@ -4,22 +4,42 @@
       "id": "enki",
       "name": "ENKI",
       "port": null,
-      "tags": ["architect", "agent-factory"],
+      "tags": [
+        "architect",
+        "agent-factory"
+      ],
       "createdAt": "2026-04-13T00:00:00.000Z"
     },
     {
       "id": "protos",
       "name": "PROTOS",
       "port": null,
-      "tags": ["prompt-engineer", "no-code"],
+      "tags": [
+        "prompt-engineer",
+        "no-code"
+      ],
       "createdAt": "2026-04-13T00:00:00.000Z"
     },
     {
       "id": "utu",
       "name": "UTU",
       "port": null,
-      "tags": ["rule-keeper"],
+      "tags": [
+        "rule-keeper"
+      ],
       "createdAt": "2026-04-13T00:00:00.000Z"
+    },
+    {
+      "id": "1776193020632",
+      "name": "TEST_A",
+      "createdAt": "2026-04-14T18:57:00.633Z",
+      "soul": null,
+      "memory": [],
+      "sessions": {},
+      "port": null,
+      "firstPrompt": null,
+      "templateKey": null,
+      "cwdOverride": "/Users/cylon/Desktop/anuki/agents/test_a"
     }
   ],
   "defaultId": "protos"

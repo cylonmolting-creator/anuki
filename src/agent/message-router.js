@@ -243,7 +243,7 @@ class MessageRouter {
           // Process is still working — DON'T spawn new process, just extend the timer
           this.logger.info('MessageRouter', `Message to "${sanitizeForLog(targetAgentId, 50)}" timeout (attempt ${attempt + 1}/${this.MAX_RETRIES + 1}) but process still active — extending wait`);
 
-          // Keep the same pending entry, just reset the timer
+          // Keep the same pending entry, just reset the timer AND timestamp
           const pending = this.pendingMessages.get(messageId);
           if (pending) {
             const extendTimer = setTimeout(() => {
@@ -255,6 +255,7 @@ class MessageRouter {
             }, timeout * 1000);
             pending.timer = extendTimer;
             pending.attempt = attempt + 1;
+            pending.timestamp = Date.now(); // Reset timestamp so _cleanupStale doesn't kill active retries
           }
         } else if (!processStillRunning && attempt < this.MAX_RETRIES) {
           // Process died — retry with new process
@@ -505,7 +506,20 @@ class MessageRouter {
 
     const pending = this.pendingMessages.get(requestId);
     if (!pending) {
-      // Fire-and-forget mode — no pending promise, this is expected
+      // No pending entry — either fire-and-forget mode or stale cleanup already removed it.
+      // Log a warning if there's a reply (means work was done but response was lost).
+      if (reply && reply.length > 0) {
+        this.logger.warn('MessageRouter', `handleResponse: reply received for ${requestId} (${reply.length} chars) but no pending entry — response lost (likely cleaned up by stale sweep)`);
+        // Still log the response so it's not completely lost
+        this._logMessage({
+          type: 'agent_response_orphaned',
+          requestId,
+          status,
+          reply: reply.substring(0, 200),
+          timestamp: new Date().toISOString(),
+          note: 'Reply arrived after pending entry was cleaned up'
+        });
+      }
       return;
     }
 
@@ -570,18 +584,33 @@ class MessageRouter {
   }
 
   /**
-   * Cleanup stale pending messages (older than 5 minutes)
+   * Cleanup stale pending messages — only truly orphaned ones.
+   * A message is stale if:
+   *   1. Its timestamp is older than staleThreshold AND
+   *   2. The target agent's process is NOT actively running
+   * This prevents killing valid retry chains where the agent is still working.
    * @private
    */
   _cleanupStale() {
     const now = Date.now();
-    const staleThreshold = 5 * 60 * 1000; // 5 minutes
+    const staleThreshold = 10 * 60 * 1000; // 10 minutes (was 5 — too aggressive for long-running agents)
 
     for (const [messageId, pending] of this.pendingMessages) {
       if (now - pending.timestamp > staleThreshold) {
-        this.logger.warn('MessageRouter', `Cleaning up stale message: ${messageId}`);
-        clearTimeout(pending.timer);
-        this.pendingMessages.delete(messageId);
+        // Check if the target agent's process is still active before cleaning up
+        const convId = this._activeInterAgentConvs.get(messageId);
+        const processActive = convId && this.executor && this.executor.isProcessActive(convId);
+
+        if (processActive) {
+          // Agent still working — update timestamp to prevent re-checking immediately
+          this.logger.info('MessageRouter', `Stale check: message ${messageId} old but agent process still active — keeping alive`);
+          pending.timestamp = now; // Reset so we don't spam this log every 60s
+        } else {
+          this.logger.warn('MessageRouter', `Cleaning up stale message: ${messageId} (no active process)`);
+          clearTimeout(pending.timer);
+          this.pendingMessages.delete(messageId);
+          this._activeInterAgentConvs.delete(messageId);
+        }
       }
     }
   }
