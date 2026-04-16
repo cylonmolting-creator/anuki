@@ -60,29 +60,60 @@ async function waitForHealthy(deadline) {
   throw new Error('boot timeout — server did not become healthy');
 }
 
+// Robust cleanup — kills the child's entire process group and awaits actual exit
+// before the parent exits. Without this, macOS orphans survive parent death and
+// can keep port 3000 bound, blocking subsequent test runs.
+async function cleanupChild(child, state, signal = 'SIGTERM') {
+  if (state.exited) return;
+  try {
+    // detached:true makes child a process group leader; negative pid = kill group
+    process.kill(-child.pid, signal);
+  } catch {
+    try { child.kill(signal); } catch {}
+  }
+  // Wait up to 3s for the child to actually exit; escalate if still alive
+  const outcome = await Promise.race([
+    new Promise((resolve) => child.once('exit', () => resolve('exit'))),
+    new Promise((resolve) => setTimeout(() => resolve('timeout'), 3000)),
+  ]);
+  if (outcome === 'timeout' && !state.exited) {
+    try { process.kill(-child.pid, 'SIGKILL'); }
+    catch { try { child.kill('SIGKILL'); } catch {} }
+    await new Promise((r) => setTimeout(r, 500));
+  }
+}
+
 async function main() {
   console.log('[test-boot] Starting Anuki...');
   const child = spawn('node', ['src/index.js'], {
     cwd: ROOT,
     stdio: ['ignore', 'pipe', 'pipe'],
     env: { ...process.env, PORT: String(PORT) },
+    detached: true, // own process group so we can kill descendants too
   });
 
   const logs = [];
   child.stdout.on('data', (d) => { logs.push(d.toString()); });
   child.stderr.on('data', (d) => { logs.push(d.toString()); });
 
-  let exited = false;
-  let exitCode = null;
-  child.on('exit', (code) => { exited = true; exitCode = code; });
+  const state = { exited: false, exitCode: null };
+  child.on('exit', (code) => { state.exited = true; state.exitCode = code; });
+
+  // If the runner itself is killed (Ctrl+C, kill), take the child down with us.
+  const onParentSignal = async () => {
+    await cleanupChild(child, state, 'SIGTERM');
+    process.exit(130);
+  };
+  process.on('SIGINT', onParentSignal);
+  process.on('SIGTERM', onParentSignal);
 
   const deadline = Date.now() + BOOT_TIMEOUT_MS;
 
   try {
     // Detect early crash
     await new Promise((r) => setTimeout(r, 500));
-    if (exited) {
-      console.error(`[test-boot] FAIL — server exited early (code=${exitCode})`);
+    if (state.exited) {
+      console.error(`[test-boot] FAIL — server exited early (code=${state.exitCode})`);
       console.error('--- last log output ---');
       console.error(logs.join('').slice(-2000));
       process.exit(1);
@@ -91,19 +122,18 @@ async function main() {
     const health = await waitForHealthy(deadline);
     console.log('[test-boot] PASS');
     console.log(`  status=${health.status}, version=${health.version}, workspaces=${health.workspaces}, provider=${health.provider}`);
-    child.kill('SIGTERM');
-    await new Promise((r) => setTimeout(r, 500));
+    await cleanupChild(child, state, 'SIGTERM');
     process.exit(0);
   } catch (e) {
     console.error(`[test-boot] FAIL — ${e.message}`);
     console.error('--- last log output ---');
     console.error(logs.join('').slice(-2000));
-    if (!exited) child.kill('SIGKILL');
+    await cleanupChild(child, state, 'SIGKILL');
     process.exit(1);
   }
 }
 
-main().catch((e) => {
+main().catch(async (e) => {
   console.error(`[test-boot] FATAL — ${e.message}`);
   process.exit(2);
 });
