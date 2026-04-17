@@ -3,23 +3,33 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Anuki — AI Agent Platform</title>
+  <title>Anuki — The Agent Civilization</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 80'%3E%3Cpath d='M8,40 Q24,18 40,18 Q56,18 72,40 Q56,62 40,62 Q24,62 8,40 Z' fill='none' stroke='%23c9a84c' stroke-width='2'/%3E%3Ccircle cx='40' cy='40' r='13' fill='%23c9a84c'/%3E%3Ccircle cx='40' cy='40' r='6' fill='%230a0a0f'/%3E%3Ccircle cx='43' cy='37' r='2' fill='%23f0e6c0' opacity='0.9'/%3E%3C/svg%3E">
   <style>
     :root {
       --bg: #0a0a0f;
       --surface: #12121a;
       --surface-hover: #1a1a25;
-      --border: #2a2a3a;
+      --surface-elevated: #16161f;
+      --border: rgba(201,168,76,0.12);
+      --border-strong: rgba(201,168,76,0.25);
       --text: #e0e0e8;
       --text-dim: #8888a0;
-      --accent: #6366f1;
-      --accent-hover: #818cf8;
+      --accent: #c9a84c;
+      --accent-hover: #d4b85c;
+      --accent-dim: #8B6914;
       --success: #22c55e;
       --warning: #f59e0b;
       --error: #ef4444;
-      --agent-enki: #f59e0b;
-      --agent-protos: #6366f1;
-      --agent-utu: #22c55e;
+      --gold: #c9a84c;
+      --gold-light: #e6c670;
+      --gold-dark: #8B6914;
+      --gold-glow: rgba(201,168,76,0.15);
+      --gold-glow-strong: rgba(201,168,76,0.3);
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.4);
+      --shadow-md: 0 4px 12px rgba(0,0,0,0.5);
+      --shadow-lg: 0 8px 32px rgba(0,0,0,0.6);
+      --shadow-gold: 0 0 20px rgba(201,168,76,0.1);
       --sidebar-w: 260px;
       --header-h: 56px;
     }
@@ -43,33 +53,65 @@
     /* Sidebar */
     .sidebar {
       width: var(--sidebar-w);
-      background: var(--surface);
+      background: linear-gradient(180deg, #14141e 0%, var(--surface) 100%);
       border-right: 1px solid var(--border);
       display: flex;
       flex-direction: column;
       flex-shrink: 0;
+      box-shadow: 4px 0 24px rgba(0,0,0,0.3);
     }
 
     .sidebar-header {
-      padding: 16px 20px;
+      padding: 20px 20px;
       border-bottom: 1px solid var(--border);
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 12px;
+      background: linear-gradient(135deg, rgba(201,168,76,0.06) 0%, transparent 100%);
+    }
+
+    .sidebar-header .brand-logo {
+      flex-shrink: 0;
+      width: 36px;
+      height: 36px;
+      filter: drop-shadow(0 0 8px rgba(201,168,76,0.4));
+      transition: filter 0.3s;
+    }
+
+    .sidebar-header .brand-logo:hover {
+      filter: drop-shadow(0 0 14px rgba(201,168,76,0.6));
+    }
+
+    .sidebar-header .brand-text {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
     }
 
     .sidebar-header h1 {
       font-size: 18px;
       font-weight: 700;
       letter-spacing: -0.5px;
+      line-height: 1.1;
+      color: var(--gold);
+      text-shadow: 0 0 20px rgba(201,168,76,0.3);
+    }
+
+    .sidebar-header .tagline {
+      font-size: 9px;
+      color: var(--gold-dark);
+      letter-spacing: 1px;
+      text-transform: uppercase;
     }
 
     .sidebar-header .version {
-      font-size: 11px;
-      color: var(--text-dim);
-      background: var(--surface-hover);
-      padding: 2px 6px;
-      border-radius: 4px;
+      font-size: 10px;
+      color: var(--gold-dark);
+      background: rgba(201,168,76,0.08);
+      border: 1px solid rgba(201,168,76,0.12);
+      padding: 2px 8px;
+      border-radius: 10px;
+      margin-left: auto;
     }
 
     .sidebar-section {
@@ -94,18 +136,22 @@
       align-items: center;
       gap: 10px;
       padding: 10px 12px;
-      border-radius: 8px;
+      border-radius: 10px;
       cursor: pointer;
-      transition: background 0.15s;
+      transition: all 0.2s ease;
+      border: 1px solid transparent;
+      margin-bottom: 2px;
     }
 
     .agent-item:hover {
-      background: var(--surface-hover);
+      background: rgba(201,168,76,0.06);
+      border-color: rgba(201,168,76,0.1);
     }
 
     .agent-item.active {
-      background: var(--surface-hover);
-      border: 1px solid var(--border);
+      background: rgba(201,168,76,0.08);
+      border: 1px solid var(--border-strong);
+      box-shadow: 0 0 12px rgba(201,168,76,0.08), inset 0 0 12px rgba(201,168,76,0.03);
     }
 
     .agent-dot {
@@ -113,6 +159,13 @@
       height: 8px;
       border-radius: 50%;
       flex-shrink: 0;
+      box-shadow: 0 0 6px currentColor;
+      animation: pulse-dot 3s ease-in-out infinite;
+    }
+
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; box-shadow: 0 0 6px currentColor; }
+      50% { opacity: 0.7; box-shadow: 0 0 10px currentColor; }
     }
 
     .agent-info {
@@ -123,6 +176,7 @@
     .agent-name {
       font-size: 14px;
       font-weight: 600;
+      color: var(--gold);
     }
 
     .agent-role {
@@ -137,6 +191,7 @@
       margin-top: auto;
       padding: 12px;
       border-top: 1px solid var(--border);
+      background: linear-gradient(0deg, rgba(201,168,76,0.03) 0%, transparent 100%);
     }
 
     .settings-btn {
@@ -146,17 +201,18 @@
       width: 100%;
       padding: 10px 12px;
       background: none;
-      border: none;
+      border: 1px solid transparent;
       color: var(--text-dim);
       font-size: 13px;
-      border-radius: 8px;
+      border-radius: 10px;
       cursor: pointer;
-      transition: all 0.15s;
+      transition: all 0.2s;
     }
 
     .settings-btn:hover {
-      background: var(--surface-hover);
-      color: var(--text);
+      background: rgba(201,168,76,0.06);
+      color: var(--gold-light);
+      border-color: rgba(201,168,76,0.1);
     }
 
     /* Main Chat Area */
@@ -174,12 +230,14 @@
       display: flex;
       align-items: center;
       gap: 12px;
-      background: var(--surface);
+      background: linear-gradient(90deg, var(--surface) 0%, var(--surface-elevated) 100%);
+      box-shadow: 0 2px 12px rgba(0,0,0,0.3);
     }
 
     .chat-header .agent-name {
       font-size: 16px;
       font-weight: 600;
+      color: var(--gold);
     }
 
     .chat-header .status {
@@ -194,6 +252,7 @@
       display: flex;
       flex-direction: column;
       gap: 16px;
+      background: radial-gradient(ellipse at 50% 0%, rgba(201,168,76,0.03) 0%, transparent 70%);
     }
 
     .message {
@@ -203,18 +262,21 @@
 
     .message.user {
       align-self: flex-end;
-      background: var(--accent);
-      color: white;
+      background: linear-gradient(135deg, var(--gold) 0%, var(--gold-dark) 100%);
+      color: #0a0a0f;
+      font-weight: 500;
       padding: 12px 16px;
-      border-radius: 16px 16px 4px 16px;
+      border-radius: 18px 18px 4px 18px;
+      box-shadow: 0 2px 12px rgba(201,168,76,0.25), 0 0 20px rgba(201,168,76,0.08);
     }
 
     .message.assistant {
       align-self: flex-start;
-      background: var(--surface);
+      background: linear-gradient(135deg, var(--surface-elevated) 0%, var(--surface) 100%);
       padding: 12px 16px;
-      border-radius: 16px 16px 16px 4px;
+      border-radius: 18px 18px 18px 4px;
       border: 1px solid var(--border);
+      box-shadow: var(--shadow-sm);
     }
 
     .message.system {
@@ -227,14 +289,15 @@
     .message .agent-label {
       font-size: 12px;
       font-weight: 600;
-      color: var(--accent);
+      color: var(--gold);
       margin-bottom: 4px;
     }
 
     .message pre {
-      background: var(--bg);
-      padding: 12px;
-      border-radius: 8px;
+      background: rgba(0,0,0,0.4);
+      padding: 14px;
+      border-radius: 10px;
+      border: 1px solid rgba(201,168,76,0.08);
       overflow-x: auto;
       margin: 8px 0;
       font-size: 13px;
@@ -247,28 +310,34 @@
 
     .welcome {
       text-align: center;
-      padding: 60px 24px;
+      padding: 80px 24px 60px;
       color: var(--text-dim);
     }
 
     .welcome h2 {
-      font-size: 24px;
-      color: var(--text);
-      margin-bottom: 8px;
+      font-size: 28px;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--gold-light) 0%, var(--gold) 50%, var(--gold-dark) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 12px;
+      text-shadow: none;
     }
 
     .welcome p {
       font-size: 15px;
       max-width: 500px;
       margin: 0 auto;
-      line-height: 1.6;
+      line-height: 1.7;
+      color: var(--text-dim);
     }
 
     /* Input Area */
     .input-area {
       padding: 16px 24px 24px;
       border-top: 1px solid var(--border);
-      background: var(--surface);
+      background: linear-gradient(0deg, var(--surface) 0%, var(--surface-elevated) 100%);
     }
 
     .input-container {
@@ -281,21 +350,22 @@
     .input-container textarea {
       flex: 1;
       background: var(--bg);
-      border: 1px solid var(--border);
+      border: 1px solid rgba(201,168,76,0.12);
       color: var(--text);
       padding: 12px 16px;
-      border-radius: 12px;
+      border-radius: 14px;
       font-size: 14px;
       font-family: inherit;
       resize: none;
       min-height: 44px;
       max-height: 200px;
       outline: none;
-      transition: border-color 0.15s;
+      transition: all 0.25s ease;
     }
 
     .input-container textarea:focus {
-      border-color: var(--accent);
+      border-color: var(--gold);
+      box-shadow: 0 0 0 3px rgba(201,168,76,0.1), 0 0 20px rgba(201,168,76,0.06);
     }
 
     .input-container textarea::placeholder {
@@ -305,27 +375,37 @@
     .send-btn {
       width: 44px;
       height: 44px;
-      background: var(--accent);
+      background: linear-gradient(135deg, var(--gold) 0%, var(--gold-dark) 100%);
       border: none;
-      border-radius: 12px;
-      color: white;
+      border-radius: 14px;
+      color: #0a0a0f;
       font-size: 18px;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
-      transition: background 0.15s;
+      transition: all 0.25s ease;
       flex-shrink: 0;
       align-self: flex-end;
+      box-shadow: 0 2px 8px rgba(201,168,76,0.3);
     }
 
     .send-btn:hover {
-      background: var(--accent-hover);
+      background: linear-gradient(135deg, var(--gold-light) 0%, var(--gold) 100%);
+      box-shadow: 0 4px 16px rgba(201,168,76,0.4);
+      transform: translateY(-1px);
+    }
+
+    .send-btn:active {
+      transform: translateY(0);
+      box-shadow: 0 1px 4px rgba(201,168,76,0.3);
     }
 
     .send-btn:disabled {
-      opacity: 0.5;
+      opacity: 0.4;
       cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
     }
 
     /* Settings Modal */
@@ -344,14 +424,15 @@
     }
 
     .modal {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 16px;
+      background: var(--surface-elevated);
+      border: 1px solid var(--border-strong);
+      border-radius: 20px;
       width: 90%;
       max-width: 500px;
       max-height: 80vh;
       overflow-y: auto;
-      padding: 24px;
+      padding: 28px;
+      box-shadow: var(--shadow-lg), 0 0 40px rgba(201,168,76,0.06);
     }
 
     .modal h2 {
@@ -407,24 +488,39 @@
     }
 
     .btn-save {
-      background: var(--accent);
-      color: white;
+      background: linear-gradient(135deg, var(--gold) 0%, var(--gold-dark) 100%);
+      color: #0a0a0f;
+      font-weight: 600;
+      box-shadow: 0 2px 8px rgba(201,168,76,0.25);
     }
 
-    /* Loading indicator */
+    /* Loading / progress indicator */
     .typing-indicator {
       display: none;
       align-self: flex-start;
       padding: 12px 16px;
-      background: var(--surface);
+      background: linear-gradient(135deg, var(--surface-elevated) 0%, var(--surface) 100%);
       border: 1px solid var(--border);
-      border-radius: 16px 16px 16px 4px;
-      color: var(--text-dim);
+      border-radius: 18px 18px 18px 4px;
+      color: var(--gold);
       font-size: 14px;
+      box-shadow: var(--shadow-sm);
+      max-width: 400px;
     }
 
     .typing-indicator.active {
       display: block;
+    }
+
+    .typing-status {
+      font-weight: 600;
+    }
+
+    .typing-detail {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: 2px;
+      opacity: 0.8;
     }
 
     .typing-dots::after {
@@ -438,11 +534,27 @@
       60%, 100% { content: '...'; }
     }
 
+    .progress-bar {
+      width: 100%;
+      height: 3px;
+      background: var(--border);
+      border-radius: 2px;
+      margin-top: 6px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--gold) 0%, var(--gold-light) 100%);
+      border-radius: 2px;
+      transition: width 0.5s ease;
+    }
+
     /* Scrollbar */
-    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar { width: 5px; }
     ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-    ::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+    ::-webkit-scrollbar-thumb { background: rgba(201,168,76,0.15); border-radius: 5px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(201,168,76,0.3); }
 
     /* Mobile menu button */
     .mobile-menu-btn {
@@ -470,7 +582,19 @@
     <!-- Sidebar -->
     <aside class="sidebar">
       <div class="sidebar-header">
-        <h1>Anuki</h1>
+        <svg class="brand-logo" viewBox="0 0 80 80" width="32" height="32">
+          <path d="M8,40 Q24,18 40,18 Q56,18 72,40 Q56,62 40,62 Q24,62 8,40 Z" fill="none" stroke="#c9a84c" stroke-width="1.8"/>
+          <circle cx="40" cy="40" r="13" fill="#c9a84c"/>
+          <circle cx="40" cy="40" r="6" fill="#0a0a0f"/>
+          <circle cx="40" cy="40" r="3" fill="#8B6914" opacity="0.5"/>
+          <circle cx="43" cy="37" r="2" fill="#f0e6c0" opacity="0.8"/>
+          <path d="M20,22 Q30,16 40,16 Q50,16 60,22" fill="none" stroke="#d4a847" stroke-width="0.8" opacity="0.5"/>
+          <path d="M20,58 Q30,64 40,64 Q50,64 60,58" fill="none" stroke="#d4a847" stroke-width="0.8" opacity="0.5"/>
+        </svg>
+        <div class="brand-text">
+          <h1>Anuki</h1>
+          <span class="tagline">The Agent Civilization</span>
+        </div>
         <span class="version">v0.1</span>
       </div>
 
@@ -501,12 +625,16 @@
       <div class="messages" id="messages">
         <div class="welcome">
           <h2>Welcome to Anuki</h2>
-          <p>Your AI agent platform is ready. Talk to PROTOS to get started, or switch agents in the sidebar.</p>
+          <p>The Agent Civilization awaits. Talk to an agent to get started, or switch agents in the sidebar.</p>
         </div>
       </div>
 
       <div class="typing-indicator" id="typingIndicator">
-        <span class="typing-dots">Thinking</span>
+        <div class="typing-status"><span class="typing-dots">Thinking</span></div>
+        <div class="typing-detail" id="typingDetail"></div>
+        <div class="progress-bar" id="progressBar" style="display:none">
+          <div class="progress-fill" id="progressFill" style="width:0%"></div>
+        </div>
       </div>
 
       <div class="input-area">
@@ -561,11 +689,7 @@
     let agents = [];
     let conversationId = null;
 
-    const agentColors = {
-      'ENKI': 'var(--agent-enki)',
-      'PROTOS': 'var(--agent-protos)',
-      'UTU': 'var(--agent-utu)'
-    };
+    const agentColors = {};  // All agents use gold accent by default
 
     // ═══════════════════════════════════════════════════════
     // Init
@@ -745,6 +869,23 @@
           addMessage('system', 'Error: ' + (data.content || data.message || 'Unknown error'));
           break;
 
+        case 'progress':
+          // Live progress from agent execution
+          showTyping();
+          updateProgress(data);
+          break;
+
+        case 'tool_start':
+          // Agent started using a tool
+          showTyping();
+          updateToolStatus(data.tool || data.name, 'running');
+          break;
+
+        case 'tool_result':
+          // Agent tool completed
+          updateToolStatus(data.tool || data.name, 'done');
+          break;
+
         case 'message-received':
         case 'message-queued':
           // Acknowledgements — show typing
@@ -891,6 +1032,73 @@
 
     function hideTyping() {
       document.getElementById('typingIndicator').classList.remove('active');
+      // Reset progress state
+      const detail = document.getElementById('typingDetail');
+      const bar = document.getElementById('progressBar');
+      const fill = document.getElementById('progressFill');
+      const status = document.querySelector('.typing-status');
+      if (detail) detail.textContent = '';
+      if (bar) bar.style.display = 'none';
+      if (fill) fill.style.width = '0%';
+      if (status) status.innerHTML = '<span class="typing-dots">Thinking</span>';
+    }
+
+    function updateProgress(data) {
+      const status = document.querySelector('.typing-status');
+      const detail = document.getElementById('typingDetail');
+      const bar = document.getElementById('progressBar');
+      const fill = document.getElementById('progressFill');
+
+      // Update status text
+      if (data.currentTool) {
+        status.textContent = toolDisplayName(data.currentTool);
+      } else if (data.turn) {
+        status.innerHTML = '<span class="typing-dots">Working</span>';
+      }
+
+      // Update detail line
+      const parts = [];
+      if (data.turn) parts.push('Turn ' + data.turn + '/' + (data.maxTurns || '?'));
+      if (data.elapsedMs) parts.push(formatElapsed(data.elapsedMs));
+      if (data.currentTool) parts.push(toolDisplayName(data.currentTool));
+      if (parts.length) detail.textContent = parts.join(' · ');
+
+      // Update progress bar
+      if (data.percentage > 0) {
+        bar.style.display = 'block';
+        fill.style.width = Math.min(data.percentage, 99) + '%';
+      }
+    }
+
+    function updateToolStatus(toolName, state) {
+      const status = document.querySelector('.typing-status');
+      const detail = document.getElementById('typingDetail');
+      if (state === 'running' && toolName) {
+        status.textContent = toolDisplayName(toolName);
+        detail.textContent = 'Using ' + toolDisplayName(toolName);
+      }
+    }
+
+    function toolDisplayName(name) {
+      const map = {
+        'Read': 'Reading file',
+        'Write': 'Writing file',
+        'Edit': 'Editing file',
+        'Bash': 'Running command',
+        'Glob': 'Searching files',
+        'Grep': 'Searching code',
+        'WebFetch': 'Fetching web content',
+        'WebSearch': 'Searching the web',
+        'TodoWrite': 'Planning',
+        'Task': 'Delegating task',
+      };
+      return map[name] || name;
+    }
+
+    function formatElapsed(ms) {
+      const s = Math.floor(ms / 1000);
+      if (s < 60) return s + 's';
+      return Math.floor(s / 60) + 'm ' + (s % 60) + 's';
     }
 
     // ═══════════════════════════════════════════════════════
