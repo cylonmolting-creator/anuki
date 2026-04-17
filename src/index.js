@@ -298,7 +298,7 @@ async function main() {
     };
     logger.success('System', 'Agent manager ready');
 
-    // Sync agents.json → workspaces.json
+    // Sync agents.json ↔ workspaces.json (bidirectional)
     const allAgentsAtBoot = agentManager.listAgents();
     let syncCount = 0;
     for (const agent of allAgentsAtBoot) {
@@ -309,6 +309,20 @@ async function main() {
       }
     }
     if (syncCount > 0) logger.success('System', `Workspace sync: ${syncCount} missing workspace(s) registered`);
+
+    // Ensure default workspace is also registered as an agent (enables inter-agent messaging)
+    if (defaultWorkspace && !agentManager.getAgent(defaultWorkspace.id)) {
+      try {
+        AgentManager.createAgent(
+          { id: defaultWorkspace.id, name: defaultWorkspace.name },
+          { workspaceManager }
+        );
+        logger.success('System', `Default agent registered: ${defaultWorkspace.name} (${defaultWorkspace.id})`);
+      } catch (e) {
+        // Agent may already exist with that ID — not fatal
+        logger.warn('System', `Default agent registration skipped: ${e.message}`);
+      }
+    }
 
     messageRouter.agentManager = agentManager;
     agentExecutor.agentManager = agentManager;
