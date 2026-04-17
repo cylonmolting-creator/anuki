@@ -1,46 +1,53 @@
 {
   "workspaces": [
     {
-      "id": "enki",
-      "name": "ENKI",
-      "port": null,
-      "tags": [
-        "architect",
-        "agent-factory"
-      ],
-      "createdAt": "2026-04-13T00:00:00.000Z"
-    },
-    {
-      "id": "protos",
+      "id": "default",
       "name": "PROTOS",
-      "port": null,
-      "tags": [
-        "prompt-engineer",
-        "no-code"
-      ],
-      "createdAt": "2026-04-13T00:00:00.000Z"
-    },
-    {
-      "id": "utu",
-      "name": "UTU",
-      "port": null,
-      "tags": [
-        "rule-keeper"
-      ],
-      "createdAt": "2026-04-13T00:00:00.000Z"
-    },
-    {
-      "id": "1776193020632",
-      "name": "TEST_A",
-      "createdAt": "2026-04-14T18:57:00.633Z",
+      "createdAt": "2026-04-17T18:42:40.086Z",
       "soul": null,
       "memory": [],
       "sessions": {},
       "port": null,
       "firstPrompt": null,
       "templateKey": null,
-      "cwdOverride": "/Users/cylon/Desktop/anuki/agents/test_a"
+      "cwdOverride": "/Users/cylon/Desktop/anuki/agents/protos"
+    },
+    {
+      "id": "1776451464567",
+      "name": "alert(1)TestBot",
+      "createdAt": "2026-04-17T18:44:24.570Z",
+      "soul": null,
+      "memory": [],
+      "sessions": {},
+      "port": null,
+      "firstPrompt": null,
+      "templateKey": null,
+      "cwdOverride": "/Users/cylon/Desktop/anuki/agents/alert-1-testbot"
+    },
+    {
+      "id": "9014bb5f-ad3c-4ce9-a61d-44890ba800e5",
+      "name": "BoldWorkspace",
+      "createdAt": "2026-04-17T18:44:24.778Z",
+      "soul": null,
+      "memory": [],
+      "sessions": {},
+      "port": null,
+      "firstPrompt": null,
+      "templateKey": null,
+      "cwdOverride": "/Users/cylon/Desktop/anuki/agents/boldworkspace"
+    },
+    {
+      "id": "1776451471454",
+      "name": "alert(2)Bot2",
+      "createdAt": "2026-04-17T18:44:31.456Z",
+      "soul": null,
+      "memory": [],
+      "sessions": {},
+      "port": null,
+      "firstPrompt": null,
+      "templateKey": null,
+      "cwdOverride": "/Users/cylon/Desktop/anuki/agents/alert-2-bot2"
     }
   ],
-  "defaultId": "protos"
+  "defaultId": "default"
 }

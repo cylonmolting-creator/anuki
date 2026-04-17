@@ -6,6 +6,12 @@ const Logger = require('../utils/logger');
 const RequestTracer = require('../core/request-tracer');
 const PreventionGuard = require('../core/prevention-guard');
 
+// Sanitize user-provided strings to prevent XSS (strip HTML tags)
+function sanitizeName(str) {
+  if (typeof str !== 'string') return str;
+  return str.replace(/<[^>]*>/g, '').trim();
+}
+
 class HTTPServer {
   constructor(workspaceManager, logger, agentManager, conversationManager) {
     this.workspaceManager = workspaceManager;
@@ -318,9 +324,17 @@ class HTTPServer {
 
     this.app.post('/api/workspaces', (req, res) => {
       try {
-        const { name, soul, createIcon = false } = req.body;
-        if (!name || name.trim().length === 0) {
+        const { name: rawName, soul, createIcon = false } = req.body;
+        const name = sanitizeName(rawName);
+        if (!name || name.length === 0) {
           return res.status(400).json({ error: 'Workspace name is required' });
+        }
+
+        // Check for duplicate name before creating
+        const allWorkspaces = this.workspaceManager.listWorkspaces();
+        const duplicate = allWorkspaces.find(ws => ws.name.toLowerCase() === name.toLowerCase());
+        if (duplicate) {
+          return res.status(409).json({ error: `Workspace with name "${name}" already exists`, existing: duplicate });
         }
 
         const workspace = this.workspaceManager.createWorkspace({ name, soul });
@@ -379,7 +393,12 @@ class HTTPServer {
     this.app.get('/api/workspaces/:id/soul', (req, res) => {
       try {
         const soulFiles = this.workspaceManager.loadSoulFiles(req.params.id);
-        res.json({ soulFiles });
+        // Strip internal metadata keys (prefixed with _) from API response
+        const publicSoulFiles = {};
+        for (const [key, value] of Object.entries(soulFiles)) {
+          if (!key.startsWith('_')) publicSoulFiles[key] = value;
+        }
+        res.json({ soulFiles: publicSoulFiles });
       } catch (e) {
         this.logger.error('HTTP', 'Failed to load soul files', e.message);
         res.status(500).json({ error: e.message });
@@ -1268,6 +1287,11 @@ class HTTPServer {
         if (!this.agentStats) {
           return res.status(500).json({ error: 'Agent stats not available' });
         }
+        // Verify agent exists before returning stats
+        const agent = this.agentManager && this.agentManager.getAgent(req.params.id);
+        if (!agent) {
+          return res.status(404).json({ error: `Agent not found: ${req.params.id}` });
+        }
         const stats = this.agentStats.getStats(req.params.id);
         res.json(stats);
       } catch (e) {
@@ -1430,6 +1454,8 @@ class HTTPServer {
         if (!agentConfig.name || !agentConfig.name.trim()) {
           return res.status(400).json({ error: 'Agent name is required' });
         }
+        agentConfig.name = sanitizeName(agentConfig.name);
+        if (agentConfig.description) agentConfig.description = sanitizeName(agentConfig.description);
 
         // createAgent handles both agents.json and workspaces.json registration
         const agent = this.agentManager.createAgent(agentConfig, {
