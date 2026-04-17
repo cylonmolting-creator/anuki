@@ -2023,6 +2023,66 @@ class AgentExecutor {
             }
             break;
 
+          // ── Non-Claude provider events (OpenAI, Ollama agentic loop) ──
+          case 'tool_start':
+            // Emitted by OpenAI/Ollama providers when model calls a tool
+            lastToolName = event.tool;
+            lastToolPurpose = this._inferToolPurpose(event.tool, event.input || {});
+            if (onEvent) {
+              onEvent({
+                type: 'tool_start',
+                tool: event.tool,
+                id: event.id,
+                input: event.input
+              });
+            }
+            this._recordReasoningEvent(conversationId, 'tool_start', {
+              tool: event.tool,
+              id: event.id,
+              input: typeof event.input === 'string' ? event.input.substring(0, 200) : event.input
+            }, {
+              rationale: `Using ${event.tool} to ${this._inferToolPurpose(event.tool, event.input || {})}`,
+              confidence: 0.9
+            });
+            break;
+
+          case 'tool_result':
+            // Emitted by OpenAI/Ollama providers after tool execution
+            if (onEvent) {
+              onEvent({
+                type: 'tool_result',
+                success: event.success,
+                tool_use_id: event.id,
+                output: event.output
+              });
+            }
+            if (event.success) {
+              toolSuccessCount++;
+            }
+            this._recordReasoningEvent(conversationId, 'tool_result', {
+              tool_use_id: event.id,
+              success: event.success,
+              output: (event.output || '').substring(0, 200)
+            });
+            break;
+
+          case 'progress':
+            // Emitted by OpenAI/Ollama providers between agentic turns
+            turnCount = event.turn || turnCount;
+            turnTimestamps.push(Date.now());
+            if (onEvent) {
+              onEvent({
+                type: 'progress',
+                turn: event.turn,
+                maxTurns: event.maxTurns,
+                percentage: event.percentage,
+                elapsedMs: event.elapsedMs,
+                currentTool: lastToolName,
+                currentAction: lastToolPurpose
+              });
+            }
+            break;
+
           case 'result':
             // Capture token usage from result event (include cache tokens for accurate totals)
             if (event.usage) {
