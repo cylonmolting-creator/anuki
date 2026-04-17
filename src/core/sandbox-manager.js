@@ -21,7 +21,7 @@ class SandboxManager {
    * Post-execution deploy — no-op in MVP
    */
   postExecutionDeploy(workspaceDir, agentName) {
-    return { success: true, skipped: true, gates: { syntax: 'skipped', critical: 'skipped', soul: 'skipped' } };
+    return { success: true, skipped: true, deployed: false, reason: 'not-sandbox-persistent', gates: { syntax: 'skipped', critical: 'skipped', soul: 'skipped' } };
   }
 }
 

@@ -201,11 +201,11 @@ If there is nothing worth saving: { "nothing_important": true }`,
   async _callClaude(prompt) {
     try {
       const fullPrompt = prompt.system + '\n\n' + prompt.userMessage;
-      const escaped = fullPrompt.replace(/"/g, '\\"').replace(/\n/g, '\\n').replace(/`/g, '\\`');
-      
+
       const result = execSync(
-        'echo "' + escaped + '" | claude -p 2>/dev/null',
+        'claude -p 2>/dev/null',
         {
+          input: fullPrompt,
           encoding: 'utf8',
           timeout: 60000,
           maxBuffer: 10 * 1024 * 1024,

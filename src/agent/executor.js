@@ -834,7 +834,7 @@ class AgentExecutor {
         ];
         if (memory) {
           const linked = memory.getLinkedIdentities ? memory.getLinkedIdentities(channel, userId) : [];
-          if (linked.length > 1) lines.push('Bagli kimlikler: ' + linked.join(', '));
+          if (linked.length > 1) lines.push('Linked identities: ' + linked.join(', '));
         }
         return replyFn(lines.join('\n'));
       }
