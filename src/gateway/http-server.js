@@ -412,7 +412,7 @@ class HTTPServer {
     const isValidWsId = (id) => /^[a-zA-Z0-9_-]+$/.test(id);
 
     // Read workspace file (INCOME_LOG.md, CHANNELS.md, ROADMAP.md, CHANGELOG.md, etc.)
-    this.app.get('/api/workspace/:id/file/:filename', (req, res) => {
+    this.app.get('/api/workspaces/:id/file/:filename', (req, res) => {
       try {
         if (!isValidWsId(req.params.id)) return res.status(400).json({ error: 'Invalid workspace ID' });
         const wsDir = path.join(this.baseDir, 'workspace', req.params.id);
@@ -432,7 +432,7 @@ class HTTPServer {
     });
 
     // Read soul file (GET) — for UI to read soul/CYCLE_LOG.md, soul/ROADMAP.md etc.
-    this.app.get('/api/workspace/:id/soul/:filename', (req, res) => {
+    this.app.get('/api/workspaces/:id/soul/:filename', (req, res) => {
       try {
         if (!isValidWsId(req.params.id)) return res.status(400).json({ error: 'Invalid workspace ID' });
         const wsDir = path.join(this.baseDir, 'workspace', req.params.id, 'soul');
@@ -451,7 +451,7 @@ class HTTPServer {
     });
 
     // Read file from agent's sandbox (cwdOverride) directory
-    this.app.get('/api/workspace/:id/sandbox/:filename', (req, res) => {
+    this.app.get('/api/workspaces/:id/sandbox/:filename', (req, res) => {
       try {
         if (!isValidWsId(req.params.id)) return res.status(400).json({ error: 'Invalid workspace ID' });
         const filename = req.params.filename;
@@ -478,7 +478,7 @@ class HTTPServer {
     });
 
     // Get agent's sandbox info (cwdOverride, file list)
-    this.app.get('/api/workspace/:id/sandbox', (req, res) => {
+    this.app.get('/api/workspaces/:id/sandbox', (req, res) => {
       try {
         const ws = this.workspaceManager.getWorkspace
           ? this.workspaceManager.getWorkspace(req.params.id)
