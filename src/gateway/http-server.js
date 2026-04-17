@@ -329,6 +329,9 @@ class HTTPServer {
         if (!name || name.length === 0) {
           return res.status(400).json({ error: 'Workspace name is required' });
         }
+        if (name.length > 100) {
+          return res.status(400).json({ error: 'Workspace name must be 100 characters or less' });
+        }
 
         // Check for duplicate name before creating
         const allWorkspaces = this.workspaceManager.listWorkspaces();
@@ -1453,6 +1456,9 @@ class HTTPServer {
         const agentConfig = req.body;
         if (!agentConfig.name || !agentConfig.name.trim()) {
           return res.status(400).json({ error: 'Agent name is required' });
+        }
+        if (agentConfig.name.length > 100) {
+          return res.status(400).json({ error: 'Agent name must be 100 characters or less' });
         }
         agentConfig.name = sanitizeName(agentConfig.name);
         if (agentConfig.description) agentConfig.description = sanitizeName(agentConfig.description);
