@@ -64,6 +64,10 @@
         "hooks": [
           {
             "type": "command",
+            "command": "# SSOT_STOP_CLEANUP_21\n# Scan /tmp for temporary files created by this session\n# Garbage patterns: /tmp/anuki-*, /tmp/cylon-sandbox-*, /tmp/*test*.js, /tmp/*acid*, /tmp/*verify*, /tmp/*.log, /tmp/cylon-health.json\n# Exempt (long-lived): /tmp/profanity2-sandbox-*, /tmp/profanity-cl-backup-*.cl\ngarbage=$(find /tmp -maxdepth 1 \\( -name \"anuki-*\" -o -name \"cylon-sandbox-*\" -o -name \"*test*.js\" -o -name \"*acid*\" -o -name \"*verify*\" -o -name \"*.log\" -o -name \"cylon-health.json\" \\) ! -name \"profanity2-sandbox-*\" ! -name \"profanity-cl-backup-*.cl\" 2>/dev/null | head -10)\ncount=$(echo \"$garbage\" | grep -c . || true)\nif [ \"$count\" -gt 0 ]; then\n  files=$(echo \"$garbage\" | tr '\\n' ',' | sed 's/,$//')\n  echo '{\"decision\":\"allow\",\"additionalContext\":\"⚠️ RULE 021 CLEANUP WARNING: Found '$count' temp files in /tmp: '$files'. Clean before finishing (rm -rf or explain why kept).\"}'\nfi"
+          },
+          {
+            "type": "command",
             "command": "# SSOT_STOP_AUDIT_005\nmsg=$(jq -r \".last_assistant_message // empty\")\nif [ -z \"$msg\" ]; then exit 0; fi\nhas_claim=$(echo \"$msg\" | grep -ciE \"unused|dead code|not needed|does not exist|not found|can be deleted|can be removed|unnecessary\" || true)\nhas_evidence=$(echo \"$msg\" | grep -cE \"\\.[a-z]{1,4}:[0-9]+|grep.*src/|verified|confirmed|PASS\" || true)\nif [ \"$has_claim\" -gt 0 ] && [ \"$has_evidence\" -eq 0 ]; then\n  echo '{\"decision\":\"block\",\"reason\":\"RULE 005 AUDIT: Response contains unverified claims. Verify with evidence (file:line, grep, test results) and rewrite.\"}'\nfi"
           },
           {
