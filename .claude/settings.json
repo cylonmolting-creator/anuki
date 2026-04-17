@@ -65,6 +65,10 @@
           {
             "type": "command",
             "command": "# SSOT_STOP_AUDIT_005\nmsg=$(jq -r \".last_assistant_message // empty\")\nif [ -z \"$msg\" ]; then exit 0; fi\nhas_claim=$(echo \"$msg\" | grep -ciE \"unused|dead code|not needed|does not exist|not found|can be deleted|can be removed|unnecessary\" || true)\nhas_evidence=$(echo \"$msg\" | grep -cE \"\\.[a-z]{1,4}:[0-9]+|grep.*src/|verified|confirmed|PASS\" || true)\nif [ \"$has_claim\" -gt 0 ] && [ \"$has_evidence\" -eq 0 ]; then\n  echo '{\"decision\":\"block\",\"reason\":\"RULE 005 AUDIT: Response contains unverified claims. Verify with evidence (file:line, grep, test results) and rewrite.\"}'\nfi"
+          },
+          {
+            "type": "command",
+            "command": "# SSOT_STOP_AUDIT_023 — evidence-based claim guard (English + Turkish)\nmsg=$(jq -r \".last_assistant_message // empty\")\nif [ -z \"$msg\" ]; then exit 0; fi\nhas_claim=$(echo \"$msg\" | grep -ciE \"will (increase|decrease|improve|speed up|slow down|be faster|be slower|be better|be worse)|should be (faster|slower|better|worse|improved)|significantly (more|less|better|faster|slower)|[0-9]+x (faster|slower|better)|(probably|presumably|likely|i think|i believe|i guess)|optimizes|artacak|artıyor|artar|azalacak|azalıyor|azalır|daha iyi|daha hızlı|daha hizli|optimize eder|muhtemelen|sanırım|tahminimce|% .* artar|% .* azalır|[0-9]+x daha\" || true)\nhas_evidence=$(echo \"$msg\" | grep -cE \"\\.[a-z]{1,4}:[0-9]+|grep.*src/|PASS|OK|SUCCESS|verified|confirmed|doğrulandı|dogruland|curl.*→.*200|took [0-9]|[0-9]+ms|benchmark\" || true)\nif [ \"$has_claim\" -gt 0 ] && [ \"$has_evidence\" -eq 0 ]; then\n  echo '{\"decision\":\"block\",\"reason\":\"RULE 023 AUDIT: Response contains unverified performance or prediction claims. Support with measurement, benchmark, file:line, or test output (PASS/OK/took Nms) before sending.\"}'\nfi"
           }
         ]
       }
