@@ -787,9 +787,13 @@
     // ═══════════════════════════════════════════════════════
     // WebSocket
     // ═══════════════════════════════════════════════════════
-    let wsReconnectDelay = 3000;
+    let wsReconnectDelay = 1000;
     let wsReconnectAttempts = 0;
     let streamingBuffer = '';
+    // Fast-poll window: when server sends 'reload' (safe-restart), client enters
+    // aggressive retry mode for 15 seconds (poll every 800ms) instead of the
+    // slow exponential backoff. Covers typical safe-restart downtime (~8s).
+    let _fastPollWindowEnd = 0;
 
     function connectWebSocket() {
       const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -798,7 +802,7 @@
       ws.onopen = () => {
         console.log('WebSocket connected');
         document.getElementById('headerStatus').textContent = 'online';
-        wsReconnectDelay = 3000;
+        wsReconnectDelay = 1000;
         wsReconnectAttempts = 0;
 
         // Send workspace selection on connect
@@ -817,14 +821,20 @@
       };
 
       ws.onclose = () => {
-        document.getElementById('headerStatus').textContent = 'reconnecting...';
         wsReconnectAttempts++;
         if (wsReconnectAttempts > 50) {
           document.getElementById('headerStatus').textContent = 'offline';
           return;
         }
-        wsReconnectDelay = Math.min(wsReconnectDelay * 1.5, 30000);
-        setTimeout(connectWebSocket, wsReconnectDelay);
+        const inFastPoll = Date.now() < _fastPollWindowEnd;
+        if (inFastPoll) {
+          document.getElementById('headerStatus').textContent = 'server restarting...';
+          setTimeout(connectWebSocket, 800);
+        } else {
+          document.getElementById('headerStatus').textContent = 'reconnecting...';
+          wsReconnectDelay = Math.min(wsReconnectDelay * 1.6, 8000);
+          setTimeout(connectWebSocket, wsReconnectDelay);
+        }
       };
 
       ws.onerror = (e) => {
@@ -908,8 +918,14 @@
           break;
 
         case 'reload':
-          // Server restarted — auto-reconnect
-          setTimeout(connectWebSocket, 2000);
+          // Server restarted — arm fast-poll window (15s of 800ms retries)
+          // and reconnect quickly. Prior 2000ms fixed delay would usually hit
+          // a still-booting server and then fall into slow backoff.
+          _fastPollWindowEnd = Date.now() + 15000;
+          if (ws) { try { ws.onclose = null; ws.close(); } catch(e) {} ws = null; }
+          wsReconnectAttempts = 0;
+          wsReconnectDelay = 1000;
+          setTimeout(connectWebSocket, 400);
           break;
 
         case 'resume-active':
