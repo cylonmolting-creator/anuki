@@ -8,6 +8,7 @@ const SandboxManager = require('../core/sandbox-manager');
 const { atomicWriteFileSync } = require('../utils/atomic-write');
 const BASE_DIR = require('../utils/base-dir');
 const { createProvider, getAvailableProviders, validateAllProviders } = require('./providers');
+const { getToolDefinitions } = require('./tools');
 
 // Soul file cache (5-min TTL)
 const SOUL_CACHE_TTL = 300000; // 5 minutes
@@ -1687,6 +1688,11 @@ class AgentExecutor {
     }
 
     // Build provider-specific spawn config (workspaceDir now defined above)
+    // Pass tool definitions for non-Claude providers with agentic support
+    const tools = (this.provider.supportsAgentic() && this.provider.name !== 'claude')
+      ? getToolDefinitions()
+      : undefined;
+
     const spawnConfig = this.provider.buildArgs({
       message: safeMessage,
       systemPrompt,
@@ -1694,7 +1700,8 @@ class AgentExecutor {
       sessionId: effectiveSessionId,
       maxTurns,
       images,
-      workspaceDir
+      workspaceDir,
+      tools
     });
 
     this.logger.info('AgentExecutor', `Executing ${this.provider.name} for workspace ${effectiveWorkspaceId}`, { requestId });
