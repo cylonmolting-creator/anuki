@@ -28,7 +28,12 @@
       "capabilities": {
         "skillsSimple": [
           "communication",
-          "problem-solving"
+          "problem-solving",
+          "research",
+          "writing",
+          "analysis",
+          "optimization",
+          "multi-agent"
         ],
         "skills": [
           {
@@ -42,6 +47,36 @@
             "name": "problem-solving",
             "category": "general",
             "description": "problem-solving capability (auto-registered from soul files)"
+          },
+          {
+            "id": "skill-research",
+            "name": "research",
+            "category": "analysis",
+            "description": "research capability (auto-registered from soul files)"
+          },
+          {
+            "id": "skill-writing",
+            "name": "writing",
+            "category": "language",
+            "description": "writing capability (auto-registered from soul files)"
+          },
+          {
+            "id": "skill-analysis",
+            "name": "analysis",
+            "category": "analysis",
+            "description": "analysis capability (auto-registered from soul files)"
+          },
+          {
+            "id": "skill-optimization",
+            "name": "optimization",
+            "category": "mathematics",
+            "description": "optimization capability (auto-registered from soul files)"
+          },
+          {
+            "id": "skill-multi-agent",
+            "name": "multi-agent",
+            "category": "system",
+            "description": "multi-agent capability (auto-registered from soul files)"
           }
         ],
         "description": "PROTOS — General purpose agent",
