@@ -46,6 +46,15 @@
             "command": "input=$(cat); fp=$(echo \"$input\" | jq -r \".tool_response.filePath // .tool_input.file_path // empty\"); ns=$(echo \"$input\" | jq -r \".tool_input.new_string // empty\"); if [ -z \"$fp\" ] || [ -z \"$ns\" ]; then exit 0; fi; if [ ! -f \"$fp\" ]; then jq -nc --arg f \"$fp\" '{hookSpecificOutput:{hookEventName:\"PostToolUse\",additionalContext:(\"WARNING: File does not exist on disk! \" + $f)}}'; exit 0; fi; sample=$(echo \"$ns\" | head -1 | sed 's/[^a-zA-Z0-9_ ]//g' | head -c 40); if [ -n \"$sample\" ] && ! grep -qF \"$sample\" \"$fp\" 2>/dev/null; then jq -nc --arg f \"$fp\" --arg s \"$sample\" '{hookSpecificOutput:{hookEventName:\"PostToolUse\",additionalContext:(\"WARNING: Edit may not have applied. Expected text not found in \" + $f + \": \" + $s)}}'; fi"
           }
         ]
+      },
+      {
+        "matcher": "Read|Grep",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "# SSOT_READ_TRACKER — Track read files for RULE 020 enforcement\nfp=$(jq -r '.tool_input.file_path // .tool_input.path // empty'); sid=$(jq -r '.session_id // \"default\"'); sf=\"/tmp/anuki-read-files-$sid\"; if [ -n \"$fp\" ]; then echo \"$fp\" >> \"$sf\"; sort -u -o \"$sf\" \"$sf\"; fi"
+          }
+        ]
       }
     ],
     "PreToolUse": [
@@ -55,6 +64,19 @@
           {
             "type": "command",
             "command": "cmd=$(jq -r \".tool_input.command // empty\"); if echo \"$cmd\" | grep -qE \"^[[:space:]]*(pkill|killall)[[:space:]]\"; then jq -nc '{hookSpecificOutput:{hookEventName:\"PreToolUse\",additionalContext:\"BLOCKED: pkill/killall is dangerous. Use /api/safe-restart or /api/agents/:id/stop.\"}}'; exit 2; fi; if echo \"$cmd\" | grep -qE \"rm\\s+(-rf?\\s+)?(/|~|\\$HOME)\"; then jq -nc '{hookSpecificOutput:{hookEventName:\"PreToolUse\",additionalContext:\"BLOCKED: Destructive rm on home/root directory.\"}}'; exit 2; fi"
+          },
+          {
+            "type": "command",
+            "command": "# SSOT_RULE_010 — Block destructive DELETE/PUT/rm-rf on real data\ncmd=$(jq -r '.tool_input.command // empty'); is_exempt=$(echo \"$cmd\" | grep -qE '/tmp/|/var/folders/' && echo yes || echo no); if [ \"$is_exempt\" = \"no\" ] && echo \"$cmd\" | grep -qE 'curl.*-X[[:space:]]+(DELETE|PUT)|rm[[:space:]]+-[rRf]+'; then echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"RULE 010 BLOCK: DELETE/PUT/rm-rf with real IDs is FORBIDDEN. Use nonexistent/mock IDs for testing. 2026-04-06 incident: 9 workspaces were deleted.\"}}'; fi"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "# SSOT_RULE_020 — Block edit without prior read\nfp=$(jq -r '.tool_input.file_path // empty'); sid=$(jq -r '.session_id // \"default\"'); sf=\"/tmp/anuki-read-files-$sid\"; if [ -z \"$fp\" ]; then exit 0; fi; if [ ! -f \"$fp\" ]; then exit 0; fi; if [ ! -f \"$sf\" ] || ! grep -qxF \"$fp\" \"$sf\" 2>/dev/null; then echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"RULE 020 BLOCK: You have not read this file yet. No assumptions — read first, then edit.\"}}'; fi"
           }
         ]
       }
