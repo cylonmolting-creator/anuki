@@ -28,7 +28,7 @@ Every response is audited after completion. If it contains unverified claims, th
 - Checkmarks with context (e.g., "Health check: OK")
 
 **How it works:**
-The Stop hook runs after every assistant response. It scans `last_assistant_message` for claim keywords. If claims are found but no evidence keywords accompany them, the response is blocked with a reason explaining why. The assistant must then verify the claims and rewrite.
+The Stop hook runs after every assistant response. It reads the last assistant message from the transcript JSONL file (via `hook-helper.sh`'s `get_last_message()`) and scans for claim keywords. If claims are found but no evidence keywords accompany them, the response is blocked with a reason explaining why. The assistant must then verify the claims and rewrite.
 
 This is **response-level enforcement** — it catches unverified claims in text output, not just in tool calls. Traditional hooks (PreToolUse, PostToolUse) only fire at tool boundaries. The Stop hook fires after every response, covering the gap where an agent can make false claims without triggering any tool.
 

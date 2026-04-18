@@ -334,27 +334,39 @@ function buildStopHookCommand(rule) {
   const reason = sanitizeForShell(rule.stop_reason || `RULE ${rule.id} AUDIT: Response contains unverified claims.`);
   const mode = rule.stop_mode || 'claim'; // 'claim' (default) or 'behavioral'
 
+  // All stop hooks use hook-helper.sh for correct stdin/output schema.
+  // Claude Code stop hook stdin does NOT contain last_assistant_message.
+  // Must read from transcript_path via get_last_message(). Output must use "approve"/"block" (NOT "allow").
+  const helperPreamble = [
+    'BASEDIR=$(cd "$(dirname "$0")/../.." 2>/dev/null && pwd || echo "$PWD")',
+    'source "$BASEDIR/scripts/hook-helper.sh"',
+    'hook_stdin',
+    'check_hook_active',
+  ];
+
   let cmd;
   if (mode === 'behavioral') {
     // Behavioral mode: pattern found = block. No evidence check.
     cmd = [
-      'msg=$(jq -r ".last_assistant_message // empty")',
+      ...helperPreamble,
+      'msg=$(get_last_message)',
       'if [ -z "$msg" ]; then exit 0; fi',
       `has_match=$(echo "$msg" | grep -ciE "${patterns}" || true)`,
       'if [ "$has_match" -gt 0 ]; then',
-      `  echo '{"decision":"block","reason":"${reason}"}'`,
+      `  emit_block "${reason}"`,
       'fi',
     ].join('\n');
   } else {
     // Claim mode (default): pattern found + no evidence = block.
     const evidencePattern = '\\.[a-z]{1,4}:[0-9]+|grep.*src/|verified|confirmed|PASS';
     cmd = [
-      'msg=$(jq -r ".last_assistant_message // empty")',
+      ...helperPreamble,
+      'msg=$(get_last_message)',
       'if [ -z "$msg" ]; then exit 0; fi',
       `has_claim=$(echo "$msg" | grep -ciE "${patterns}" || true)`,
       `has_evidence=$(echo "$msg" | grep -cE "${evidencePattern}" || true)`,
       'if [ "$has_claim" -gt 0 ] && [ "$has_evidence" -eq 0 ]; then',
-      `  echo '{"decision":"block","reason":"${reason}"}'`,
+      `  emit_block "${reason}"`,
       'fi',
     ].join('\n');
   }
