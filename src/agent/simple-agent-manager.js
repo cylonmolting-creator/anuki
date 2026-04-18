@@ -732,6 +732,20 @@ function deleteAgent(agentId, options = {}) {
   }
 
   const agent = data.agents[agentIndex];
+
+  // Guard: agents with soul files require force=true to delete
+  if (!options.force) {
+    const soulDir = path.join(WORKSPACE_DIR, agentId, 'soul');
+    if (fs.existsSync(soulDir)) {
+      const soulFiles = fs.readdirSync(soulDir).filter(f => f.endsWith('.md') || f.endsWith('.txt'));
+      if (soulFiles.length > 0) {
+        throw new Error(
+          `Agent "${agent.name || agentId}" has ${soulFiles.length} soul file(s) and cannot be deleted without force=true. ` +
+          `This protection prevents accidental deletion of configured agents.`
+        );
+      }
+    }
+  }
   const preserveWorkspace = options.preserveWorkspace || false;
 
   // Delete .app bundle

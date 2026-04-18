@@ -22,7 +22,9 @@
       "port": null,
       "firstPrompt": null,
       "templateKey": null,
-      "tags": ["rule-keeper"],
+      "tags": [
+        "rule-keeper"
+      ],
       "cwdOverride": null
     }
   ],

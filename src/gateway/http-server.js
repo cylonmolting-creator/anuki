@@ -374,17 +374,19 @@ class HTTPServer {
 
     this.app.delete('/api/workspaces/:id', (req, res) => {
       try {
+        const force = req.query.force === 'true' || req.body?.force === true;
+
         // Delete associated desktop icon if exists
         if (this.agentManager) {
           try {
-            this.agentManager.deleteAgent(req.params.id);
+            this.agentManager.deleteAgent(req.params.id, { force });
             this.logger.success('HTTP', `Desktop icon deleted`);
           } catch (e) {
-            // Agent icon might not exist, that's OK
+            // Agent icon might not exist, or protected — that's OK
           }
         }
 
-        this.workspaceManager.deleteWorkspace(req.params.id);
+        this.workspaceManager.deleteWorkspace(req.params.id, { force });
         res.json({ success: true });
       } catch (e) {
         this.logger.error('HTTP', 'Failed to delete workspace', e.message);
@@ -1485,7 +1487,8 @@ class HTTPServer {
         }
 
         const preserveWorkspace = req.query.preserveWorkspace === 'true' || req.body?.preserveWorkspace === true;
-        const result = this.agentManager.deleteAgent(req.params.id, { preserveWorkspace });
+        const force = req.query.force === 'true' || req.body?.force === true;
+        const result = this.agentManager.deleteAgent(req.params.id, { preserveWorkspace, force });
 
         // Also delete workspace (if not preserved)
         if (!preserveWorkspace) {

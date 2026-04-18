@@ -802,7 +802,7 @@ ${firstPrompt.trim()}
     return this.workspaces.workspaces;
   }
 
-  deleteWorkspace(id) {
+  deleteWorkspace(id, options = {}) {
     const workspace = this.getWorkspace(id);
     if (!workspace) {
       throw new Error(`Workspace ${id} not found`);
@@ -813,8 +813,22 @@ ${firstPrompt.trim()}
       throw new Error('Cannot delete the only workspace');
     }
 
-    // Remove workspace directory
+    // Guard: workspaces with soul files require force=true to delete
     const workspaceDir = path.join(this.baseDir, 'workspace', id);
+    if (!options.force && fs.existsSync(workspaceDir)) {
+      const soulDir = path.join(workspaceDir, 'soul');
+      if (fs.existsSync(soulDir)) {
+        const soulFiles = fs.readdirSync(soulDir).filter(f => f.endsWith('.md') || f.endsWith('.txt'));
+        if (soulFiles.length > 0) {
+          throw new Error(
+            `Workspace "${workspace.name || id}" has ${soulFiles.length} soul file(s) and cannot be deleted without force=true. ` +
+            `This protection prevents accidental deletion of configured workspaces.`
+          );
+        }
+      }
+    }
+
+    // Remove workspace directory
     if (fs.existsSync(workspaceDir)) {
       fs.rmSync(workspaceDir, { recursive: true, force: true });
     }

@@ -285,7 +285,7 @@ async function main() {
     const agentManager = {
       getAgent: (id) => AgentManager.getAgent(id),
       createAgent: (data, options) => AgentManager.createAgent(data, options),
-      deleteAgent: (id) => AgentManager.deleteAgent(id),
+      deleteAgent: (id, options) => AgentManager.deleteAgent(id, options),
       listAgents: () => AgentManager.listAgents(),
       startAgent: (id) => AgentManager.startAgent(id),
       stopAgent: (id) => AgentManager.stopAgent(id),
