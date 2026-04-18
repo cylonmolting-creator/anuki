@@ -849,12 +849,36 @@
           break;
 
         case 'text':
-        case 'system':
           // Streaming text chunk — accumulate and show
           showTyping();
           streamingBuffer += (data.content || data.text || '');
           updateStreamingMessage(streamingBuffer, data.agentName);
           break;
+
+        case 'system': {
+          // System events are metadata (model info, queue flush boundary markers,
+          // status notices). They MUST NOT be concatenated into the response
+          // buffer — otherwise strings like "📎 Processing queued message..."
+          // leak into the assistant bubble when a follow-up message is flushed
+          // from the queue (backend emits this system event right before
+          // resuming the session with the queued message).
+          const sysContent = data.content || data.text || '';
+          // Queue-flush boundary: the backend skips the 'done' event for the
+          // just-finished message (so WebSocket stays in processing state),
+          // and then emits this system event just before the queued message
+          // starts streaming. Prepare for the new message: clear any residual
+          // streaming buffer from the previous turn and keep the typing
+          // indicator visible so the user sees work is still happening.
+          if (sysContent.includes('Processing queued message')) {
+            streamingBuffer = '';
+            showTyping();
+          } else if (sysContent) {
+            // Regular system notices — surface as a toast-style hint without
+            // polluting the response bubble.
+            showTyping();
+          }
+          break;
+        }
 
         case 'complete':
           // Final response — replace streaming buffer with complete content
