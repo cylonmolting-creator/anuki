@@ -68,6 +68,10 @@
           {
             "type": "command",
             "command": "# SSOT_RULE_010 — Block destructive DELETE/PUT/rm-rf on real data\ncmd=$(jq -r '.tool_input.command // empty'); is_exempt=$(echo \"$cmd\" | grep -qE '/tmp/|/var/folders/' && echo yes || echo no); if [ \"$is_exempt\" = \"no\" ] && echo \"$cmd\" | grep -qE 'curl.*-X[[:space:]]+(DELETE|PUT)|rm[[:space:]]+-[rRf]+'; then echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"RULE 010 BLOCK: DELETE/PUT/rm-rf with real IDs is FORBIDDEN. Use nonexistent/mock IDs for testing. 2026-04-06 incident: 9 workspaces were deleted.\"}}'; fi"
+          },
+          {
+            "type": "command",
+            "command": "BASEDIR=$(cd \"$(dirname \"$0\")/../..\" 2>/dev/null && pwd || echo \"$PWD\"); \"$BASEDIR/scripts/pre-push-gate.sh\""
           }
         ]
       },

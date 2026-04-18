@@ -33,8 +33,12 @@ function deepMerge(target, source) {
 function applyEnvOverrides(config) {
   const c = JSON.parse(JSON.stringify(config)); // deep clone
 
-  // Port
-  if (process.env.PORT) c.port = parseInt(process.env.PORT) || c.port;
+  // Port (ANUKI_TEST_PORT overrides everything — used by pre-push-gate.sh)
+  if (process.env.ANUKI_TEST_PORT) {
+    c.port = parseInt(process.env.ANUKI_TEST_PORT) || c.port;
+  } else if (process.env.PORT) {
+    c.port = parseInt(process.env.PORT) || c.port;
+  }
 
   // LLM Provider
   if (process.env.LLM_PROVIDER) c.agent.provider = process.env.LLM_PROVIDER;
