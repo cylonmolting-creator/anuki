@@ -2479,6 +2479,23 @@ class HTTPServer {
       }
     });
 
+    // Status snapshot — lets agents verify whether a restart is currently
+    // queued, whether an earlier request has already fired, and how long the
+    // server has been up. Without this, an agent that POSTed /api/safe-restart
+    // has no way to tell later whether the restart happened — it ends up
+    // caching the initial "queued" response and reporting stale info.
+    this.app.get('/api/safe-restart/status', (req, res) => {
+      try {
+        if (!this.agentExecutor) {
+          return res.status(500).json({ error: 'Agent executor not available' });
+        }
+        res.json(this.agentExecutor.getSafeRestartStatus());
+      } catch (err) {
+        this.logger.error('HTTP', `Safe restart status error: ${err.message}`);
+        res.status(500).json({ error: err.message });
+      }
+    });
+
     // ═══════════════ Session Management ═══════════════
     // Inject/restore a session into executor's in-memory map
     this.app.post('/api/sessions/inject', (req, res) => {

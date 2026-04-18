@@ -357,6 +357,9 @@ class AgentExecutor {
     this.supervisor = null; // Injected from index.js — circuit breakers + resource monitoring
     this._restartPending = false; // Safe-restart: queued restart waiting for agents to finish
     this._restartRequestedBy = null; // Which workspace requested the restart
+    this._restartRequestedAt = null; // ISO timestamp of the latest requestSafeRestart
+    this._lastRestartFiredAt = null; // ISO timestamp of the last _executeSafeRestart (persisted to disk)
+    this._loadRestartHistory(); // restore _lastRestartFiredAt from disk so state survives the restart itself
     this._shuttingDown = false; // Set to true during graceful shutdown — prevents queue flush
 
     // Session tracking for idle/daily reset
@@ -4276,6 +4279,9 @@ ALWAYS save user preferences, decisions, and important information.`);
   requestSafeRestart(requestedBy) {
     // Count active agents EXCLUDING the one requesting restart
     const activeCount = this._activeJobs.size;
+    // Record request time so /api/safe-restart/status can show it regardless
+    // of whether the restart fires immediately or is queued.
+    this._restartRequestedAt = new Date().toISOString();
 
     if (activeCount === 0) {
       // No agents running — restart immediately
@@ -4332,10 +4338,78 @@ ALWAYS save user preferences, decisions, and important information.`);
     this._saveActiveJobs();
     this._saveSessions();
 
-    // Delayed kickstart — gives time for response delivery
+    // Record fire time BEFORE kickstart so the next process can report it via
+    // /api/safe-restart/status (the kickstart kills this process ~2s later).
+    this._lastRestartFiredAt = new Date().toISOString();
+    this._saveRestartHistory();
+
+    // Delayed kickstart — gives time for response delivery.
+    // KNOWN LIMITATION: this assumes the process is managed by macOS launchd
+    // under a service label `com.anuki.master`. If Anuki is started via
+    // `node src/index.js`, `npm start`, pm2, systemd, docker, or any other
+    // supervisor, this command will fail silently and the process will NOT
+    // restart. Status, state save, and the queue mechanism above still work —
+    // but the actual restart needs to be wired to the supervisor in use.
     const cmd = `nohup bash -c "sleep 2 && launchctl kickstart -k gui/${uid}/com.anuki.master" > /dev/null 2>&1 &`;
     require('child_process').exec(cmd);
     this.logger.info('AgentExecutor', `[SAFE-RESTART] Delayed kickstart triggered (2s delay, requested by: ${requestedBy})`);
+  }
+
+  /**
+   * Status snapshot for /api/safe-restart/status. Lets agents verify whether
+   * a restart is currently queued, whether their previous request fired, and
+   * how long the server has been up (so they can detect the restart by the
+   * uptime resetting to near-zero).
+   */
+  getSafeRestartStatus() {
+    return {
+      pending: !!this._restartPending,
+      requestedBy: this._restartRequestedBy || null,
+      activeAgents: this._activeJobs.size,
+      lastRequestedAt: this._restartRequestedAt || null,
+      lastFiredAt: this._lastRestartFiredAt || null,
+      serverPid: process.pid,
+      serverUptimeSec: Math.round(process.uptime()),
+      serverStartedAt: new Date(Date.now() - process.uptime() * 1000).toISOString()
+    };
+  }
+
+  /**
+   * Persist _lastRestartFiredAt to disk so it survives the restart itself.
+   */
+  _saveRestartHistory() {
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      const file = path.join(this._baseDir, 'data', 'safe-restart-state.json');
+      fs.mkdirSync(path.dirname(file), { recursive: true });
+      fs.writeFileSync(file, JSON.stringify({
+        lastFiredAt: this._lastRestartFiredAt,
+        lastRequestedAt: this._restartRequestedAt
+      }, null, 2));
+    } catch (e) {
+      this.logger.warn('AgentExecutor', `[SAFE-RESTART] Could not persist restart history: ${e.message}`);
+    }
+  }
+
+  /**
+   * Load persisted restart history on boot so status endpoint can report
+   * lastFiredAt even when queried from a freshly-restarted process.
+   */
+  _loadRestartHistory() {
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      const file = path.join(this._baseDir, 'data', 'safe-restart-state.json');
+      if (!fs.existsSync(file)) return;
+      const data = JSON.parse(fs.readFileSync(file, 'utf8'));
+      if (data && typeof data.lastFiredAt === 'string') {
+        this._lastRestartFiredAt = data.lastFiredAt;
+      }
+      if (data && typeof data.lastRequestedAt === 'string') {
+        this._restartRequestedAt = data.lastRequestedAt;
+      }
+    } catch (_) { /* best-effort */ }
   }
 }
 
