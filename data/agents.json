@@ -1,3 +1,154 @@
 {
-  "agents": []
+  "agents": [
+    {
+      "id": "default",
+      "name": "PROTOS",
+      "nickname": null,
+      "personality": {},
+      "interests": {},
+      "firstPrompt": null,
+      "appearance": {
+        "color": "#f97316",
+        "avatarUrl": null,
+        "emoji": null
+      },
+      "channels": {},
+      "memory": {
+        "enabled": true,
+        "maxSize": -1
+      },
+      "workStyle": {
+        "proactive": true,
+        "heartbeat": true
+      },
+      "port": null,
+      "createdAt": "2026-04-17T20:40:05.333Z",
+      "appPath": null,
+      "running": true,
+      "capabilities": {
+        "skillsSimple": [
+          "communication",
+          "problem-solving"
+        ],
+        "skills": [
+          {
+            "id": "skill-communication",
+            "name": "communication",
+            "category": "language",
+            "description": "communication capability (auto-registered from soul files)"
+          },
+          {
+            "id": "skill-problem-solving",
+            "name": "problem-solving",
+            "category": "general",
+            "description": "problem-solving capability (auto-registered from soul files)"
+          }
+        ],
+        "description": "PROTOS — General purpose agent",
+        "language": null,
+        "responseTime": "fast"
+      }
+    },
+    {
+      "id": "utu",
+      "name": "UTU",
+      "nickname": null,
+      "personality": {},
+      "interests": {},
+      "firstPrompt": null,
+      "appearance": {
+        "color": "#8b5cf6",
+        "avatarUrl": null,
+        "emoji": null
+      },
+      "channels": {},
+      "memory": {
+        "enabled": true,
+        "maxSize": -1
+      },
+      "workStyle": {
+        "proactive": true,
+        "heartbeat": true
+      },
+      "port": null,
+      "createdAt": "2026-04-13T00:00:00.000Z",
+      "appPath": null,
+      "running": true,
+      "tags": [
+        "rule-keeper"
+      ],
+      "capabilities": {
+        "skillsSimple": [
+          "communication",
+          "create-rules",
+          "edit-rules",
+          "delete-rules",
+          "propagate-rules",
+          "audit-rules",
+          "testing",
+          "verification",
+          "writing"
+        ],
+        "skills": [
+          {
+            "id": "skill-communication",
+            "name": "communication",
+            "category": "language",
+            "description": "communication capability (auto-registered from soul files)"
+          },
+          {
+            "id": "skill-create-rules",
+            "name": "create-rules",
+            "category": "general",
+            "description": "create-rules capability (auto-registered from soul files)"
+          },
+          {
+            "id": "skill-edit-rules",
+            "name": "edit-rules",
+            "category": "general",
+            "description": "edit-rules capability (auto-registered from soul files)"
+          },
+          {
+            "id": "skill-propagate-rules",
+            "name": "propagate-rules",
+            "category": "general",
+            "description": "propagate-rules capability (auto-registered from soul files)"
+          },
+          {
+            "id": "skill-audit-rules",
+            "name": "audit-rules",
+            "category": "general",
+            "description": "audit-rules capability (auto-registered from soul files)"
+          },
+          {
+            "id": "skill-delete-rules",
+            "name": "delete-rules",
+            "category": "general",
+            "description": "delete-rules capability (auto-registered from soul files)"
+          },
+          {
+            "id": "skill-testing",
+            "name": "testing",
+            "category": "code",
+            "description": "testing capability (auto-registered from soul files)"
+          },
+          {
+            "id": "skill-verification",
+            "name": "verification",
+            "category": "qa",
+            "description": "verification capability (auto-registered from soul files)"
+          },
+          {
+            "id": "skill-writing",
+            "name": "writing",
+            "category": "language",
+            "description": "writing capability (auto-registered from soul files)"
+          }
+        ],
+        "description": "UTU — Rule Guardian: creates, edits, and enforces rules",
+        "language": null,
+        "responseTime": "fast"
+      }
+    }
+  ]
 }

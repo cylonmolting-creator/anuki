@@ -1,4 +1,30 @@
 {
-  "workspaces": [],
-  "defaultId": null
+  "workspaces": [
+    {
+      "id": "default",
+      "name": "PROTOS",
+      "createdAt": "2026-04-17T20:40:05.320Z",
+      "soul": null,
+      "memory": [],
+      "sessions": {},
+      "port": null,
+      "firstPrompt": null,
+      "templateKey": null,
+      "cwdOverride": "/Users/cylon/Desktop/anuki/agents/protos"
+    },
+    {
+      "id": "utu",
+      "name": "UTU",
+      "createdAt": "2026-04-13T00:00:00.000Z",
+      "soul": null,
+      "memory": [],
+      "sessions": {},
+      "port": null,
+      "firstPrompt": null,
+      "templateKey": null,
+      "tags": ["rule-keeper"],
+      "cwdOverride": null
+    }
+  ],
+  "defaultId": "default"
 }
