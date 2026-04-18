@@ -149,6 +149,150 @@
         "language": null,
         "responseTime": "fast"
       }
+    },
+    {
+      "id": "enki",
+      "name": "ENKI",
+      "nickname": null,
+      "personality": {},
+      "interests": {},
+      "firstPrompt": null,
+      "appearance": {
+        "color": "#10b981",
+        "avatarUrl": null,
+        "emoji": null
+      },
+      "channels": {},
+      "memory": {
+        "enabled": true,
+        "maxSize": -1
+      },
+      "workStyle": {
+        "proactive": true,
+        "heartbeat": true
+      },
+      "port": null,
+      "createdAt": "2026-04-13T00:00:00.000Z",
+      "appPath": null,
+      "running": true,
+      "tags": [
+        "architect",
+        "agent-factory"
+      ],
+      "capabilities": {
+        "skillsSimple": [
+          "communication",
+          "create-agents",
+          "edit-agents",
+          "delete-agents",
+          "validate-agents",
+          "design-identity",
+          "analysis",
+          "debugging",
+          "testing",
+          "research",
+          "verification",
+          "refactoring",
+          "monitoring",
+          "multi-agent",
+          "crypto"
+        ],
+        "skills": [
+          {
+            "id": "skill-communication",
+            "name": "communication",
+            "category": "language",
+            "description": "communication capability"
+          },
+          {
+            "id": "skill-create-agents",
+            "name": "create-agents",
+            "category": "general",
+            "description": "Design and create new AI agents with soul files"
+          },
+          {
+            "id": "skill-edit-agents",
+            "name": "edit-agents",
+            "category": "general",
+            "description": "Edit existing agent configuration and soul files"
+          },
+          {
+            "id": "skill-validate-agents",
+            "name": "validate-agents",
+            "category": "qa",
+            "description": "Validate agent configuration and behavior"
+          },
+          {
+            "id": "skill-design-identity",
+            "name": "design-identity",
+            "category": "general",
+            "description": "Design agent identity, personality, and capabilities"
+          },
+          {
+            "id": "skill-analysis",
+            "name": "analysis",
+            "category": "general",
+            "description": "Analyze agent behavior and performance"
+          },
+          {
+            "id": "skill-debugging",
+            "name": "debugging",
+            "category": "code",
+            "description": "Debug agent issues"
+          },
+          {
+            "id": "skill-testing",
+            "name": "testing",
+            "category": "code",
+            "description": "Test agent functionality"
+          },
+          {
+            "id": "skill-research",
+            "name": "research",
+            "category": "general",
+            "description": "Research best practices for agent design"
+          },
+          {
+            "id": "skill-verification",
+            "name": "verification",
+            "category": "qa",
+            "description": "Verify agent compliance"
+          },
+          {
+            "id": "skill-refactoring",
+            "name": "refactoring",
+            "category": "code",
+            "description": "Refactor agent architecture"
+          },
+          {
+            "id": "skill-monitoring",
+            "name": "monitoring",
+            "category": "general",
+            "description": "Monitor agent health and performance"
+          },
+          {
+            "id": "skill-multi-agent",
+            "name": "multi-agent",
+            "category": "general",
+            "description": "Coordinate multi-agent workflows"
+          },
+          {
+            "id": "skill-delete-agents",
+            "name": "delete-agents",
+            "category": "system",
+            "description": "delete-agents capability (auto-registered from soul files)"
+          },
+          {
+            "id": "skill-crypto",
+            "name": "crypto",
+            "category": "crypto",
+            "description": "crypto capability (auto-registered from soul files)"
+          }
+        ],
+        "description": "ENKI — Agent Architect: designs, creates, and manages AI agents",
+        "language": null,
+        "responseTime": "fast"
+      }
     }
   ]
 }
