@@ -4331,28 +4331,37 @@ ALWAYS save user preferences, decisions, and important information.`);
     this._restartPending = false;
     this._restartRequestedBy = null;
 
-    const { execSync } = require('child_process');
-    const uid = execSync('id -u').toString().trim();
-
-    // Save all state before restart
+    // Save all state before exit so the next process can resume cleanly.
     this._saveActiveJobs();
     this._saveSessions();
 
-    // Record fire time BEFORE kickstart so the next process can report it via
-    // /api/safe-restart/status (the kickstart kills this process ~2s later).
+    // Record fire time BEFORE exit so the freshly-started process can report
+    // it via /api/safe-restart/status after boot. Persisted to disk.
     this._lastRestartFiredAt = new Date().toISOString();
     this._saveRestartHistory();
 
-    // Delayed kickstart — gives time for response delivery.
-    // KNOWN LIMITATION: this assumes the process is managed by macOS launchd
-    // under a service label `com.anuki.master`. If Anuki is started via
-    // `node src/index.js`, `npm start`, pm2, systemd, docker, or any other
-    // supervisor, this command will fail silently and the process will NOT
-    // restart. Status, state save, and the queue mechanism above still work —
-    // but the actual restart needs to be wired to the supervisor in use.
-    const cmd = `nohup bash -c "sleep 2 && launchctl kickstart -k gui/${uid}/com.anuki.master" > /dev/null 2>&1 &`;
-    require('child_process').exec(cmd);
-    this.logger.info('AgentExecutor', `[SAFE-RESTART] Delayed kickstart triggered (2s delay, requested by: ${requestedBy})`);
+    // Platform-agnostic restart via clean exit.
+    //
+    // Instead of calling a specific supervisor (launchctl, systemctl, pm2,
+    // docker, etc.) — which ties Anuki to one host OS and one deployment
+    // style — we exit cleanly with code 0 and let whatever supervisor the
+    // user chose bring the process back up. This works with:
+    //   - pm2 (`pm2 start src/index.js --restart-delay 2000`)
+    //   - systemd (`Restart=always` in the unit)
+    //   - docker / docker-compose (`restart: unless-stopped`)
+    //   - launchd (KeepAlive)
+    //   - nodemon / forever / any process manager
+    //
+    // Anuki run bare with `node src/index.js` will NOT come back — users who
+    // want auto-restart must run under a supervisor. See README.md
+    // "Running in production" section for copy-pasteable examples.
+    this.logger.info('AgentExecutor', `[SAFE-RESTART] Exiting cleanly (requested by: ${requestedBy}) — supervisor will restart the process`);
+
+    // 2s delay so in-flight HTTP/WebSocket responses can drain.
+    setTimeout(() => {
+      // eslint-disable-next-line n/no-process-exit
+      process.exit(0);
+    }, 2000);
   }
 
   /**

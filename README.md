@@ -410,10 +410,102 @@ GET  /api/workspaces              # List workspaces
 GET  /api/workspaces/:id/soul     # Read agent's soul files
 PUT  /api/workspaces/:id/soul/:f  # Update a soul file
 GET  /api/active-jobs             # Running agent jobs
+POST /api/safe-restart            # Request graceful restart (queued if agents are busy)
+GET  /api/safe-restart/status     # Check whether a queued restart has already fired
 POST /api/backup/create           # Create backup
 ```
 
 Full API: 50+ REST endpoints covering agents, workspaces, conversations, memory, cron, backup, and inter-agent messaging.
+
+---
+
+## Running in Production
+
+Anuki is designed to stay up. When an agent requests a restart — to pick up a
+code change, recover from a stuck state, or apply a new configuration — it
+calls `POST /api/safe-restart`. Anuki waits until every running agent finishes
+its current turn, saves state to disk, and then exits cleanly with code 0.
+
+**Anuki does not restart itself.** It exits, and expects your process
+supervisor to bring it back up. This is the standard Node.js pattern and
+works identically on macOS, Linux, Windows (WSL), and inside Docker.
+
+If you start Anuki bare with `node src/index.js` or `npm start`, the process
+will exit and stay exited on the next safe-restart. For anything beyond a
+dev session, wrap it in a supervisor:
+
+### pm2 (simple, cross-platform)
+
+```bash
+npm install -g pm2
+pm2 start src/index.js --name anuki --restart-delay 2000
+pm2 save
+pm2 startup   # print the command to enable pm2 on boot
+```
+
+### systemd (Linux)
+
+Create `/etc/systemd/system/anuki.service`:
+
+```ini
+[Unit]
+Description=Anuki multi-agent platform
+After=network.target
+
+[Service]
+Type=simple
+User=youruser
+WorkingDirectory=/path/to/anuki
+ExecStart=/usr/bin/node src/index.js
+Restart=always
+RestartSec=2
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Then:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now anuki
+sudo journalctl -u anuki -f   # follow logs
+```
+
+### Docker
+
+```yaml
+# docker-compose.yml
+services:
+  anuki:
+    image: node:20-alpine
+    working_dir: /app
+    volumes: [".:/app"]
+    command: node src/index.js
+    restart: unless-stopped
+    ports: ["3000:3000"]
+```
+
+### Verifying a restart fired
+
+After `POST /api/safe-restart` you can poll the status endpoint to confirm
+the restart actually happened — don't just trust the initial queued response:
+
+```bash
+curl -s localhost:3000/api/safe-restart/status
+# → { "pending": true, "activeAgents": 1, "lastFiredAt": null, ... }
+
+# …agent finishes, Anuki exits, supervisor restarts…
+
+curl -s localhost:3000/api/safe-restart/status
+# → { "pending": false, "activeAgents": 0,
+#     "lastFiredAt": "2026-04-18T22:35:53.191Z",
+#     "serverUptimeSec": 4, ... }
+```
+
+A small `serverUptimeSec` plus a `lastFiredAt` after your POST time proves
+the restart cycle completed.
 
 ---
 
