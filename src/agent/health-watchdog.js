@@ -162,10 +162,13 @@ class HealthWatchdog {
     if (age > this.heartbeatTimeoutMs) {
       this._warn('Heartbeat stale (' + Math.round(age / 1000) + 's since last heartbeat)');
 
-      // Self-heal: reset heartbeat to avoid repeated warnings every 30s
-      // The next real heartbeat cron will reset it properly
-      // We only warn once per timeout window
-      this._lastHeartbeat = Date.now() - (this.heartbeatTimeoutMs * 0.9);
+      // BUG-B fix: Previous self-heal set _lastHeartbeat to (now - timeout*0.9),
+      // leaving age at 90% of the threshold → next check fires within ~10% of
+      // the timeout window → re-warn every few minutes on a multi-minute
+      // timeout. That's a noisy loop, not a heal. Full-reset the timer: treat
+      // the warning as a one-shot notification and give the next real cron
+      // its full interval to arrive before warning again.
+      this._lastHeartbeat = Date.now();
     }
   }
 

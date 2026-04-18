@@ -1923,6 +1923,14 @@ class AgentExecutor {
     claudeProcess.stdout.setEncoding('utf8');
     claudeProcess.stderr.setEncoding('utf8');
 
+    // BUG-A fix: _zombieTimer must live in the outer scope so rl.on('line')
+    // (which schedules it after a result event) and the Promise's tryFinalize
+    // (which clears it on normal exit) can both reach it via closure. Declaring
+    // it inside the Promise executor caused a ReferenceError on every result
+    // event, which the outer try-catch swallowed and mislabeled as
+    // "Non-JSON output" in logs.
+    let _zombieTimer = null;
+
     const rl = readline.createInterface({ input: claudeProcess.stdout });
 
     rl.on('line', (line) => {
@@ -2308,7 +2316,8 @@ class AgentExecutor {
       let exitCode = null;
       let rlClosed = false;
       let processClosed = false;
-      let _zombieTimer = null;
+      // _zombieTimer hoisted to outer scope (see BUG-A fix above) so the
+      // rl.on('line') handler can schedule it and tryFinalize can clear it.
 
       // Wait for BOTH readline close AND process close before completing.
       // This prevents race condition where process exits before all stdout lines are parsed.
