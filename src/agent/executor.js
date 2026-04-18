@@ -47,6 +47,72 @@ const reasoningTraces = new Map();
 const REASONING_TRACE_TTL = 86400000; // 24 hours — auto-cleanup
 const reasoningEnabled = new Map(); // Maps conversationId -> boolean (enabled by THINKING.md)
 
+// LOSSLESS ROTATION: Tool history tracking for ALL conversations (not just thinking-enabled)
+// Maps conversationId -> [{ts, tool, input, output, success}]
+// Populated on every tool_use/tool_result event regardless of _thinkingEnabled flag.
+// Used by recap builder to preserve tool call context across session rotations.
+const conversationToolHistory = new Map();
+const TOOL_HISTORY_MAX_PER_CONV = 200; // Cap FIFO at 200 entries
+const TOOL_HISTORY_TTL_MS = 86400000;  // 24 hours
+const TOOL_HISTORY_OUTPUT_MAX = 500;   // Per-entry output cap (chars)
+
+function _recordToolUse(conversationId, id, tool, input) {
+  if (!conversationId) return;
+  let arr = conversationToolHistory.get(conversationId);
+  if (!arr) { arr = []; conversationToolHistory.set(conversationId, arr); }
+  // Shape input preview — keep compact
+  let inputPreview = '';
+  try {
+    if (typeof input === 'string') inputPreview = input.substring(0, 200);
+    else if (input && typeof input === 'object') {
+      const keys = ['file_path', 'path', 'command', 'pattern', 'url', 'query'];
+      for (const k of keys) {
+        if (input[k]) { inputPreview = `${k}=${String(input[k]).substring(0, 200)}`; break; }
+      }
+      if (!inputPreview) {
+        const s = JSON.stringify(input);
+        if (s && s !== '{}') inputPreview = s.substring(0, 200);
+      }
+    }
+  } catch (_) { inputPreview = ''; }
+  // Idempotent by id: if entry already exists, upgrade input preview if better
+  if (id) {
+    for (let i = arr.length - 1; i >= 0 && i >= arr.length - 10; i--) {
+      if (arr[i].id === id) {
+        if (inputPreview && inputPreview.length > (arr[i].input || '').length) arr[i].input = inputPreview;
+        if (!arr[i].tool && tool) arr[i].tool = tool;
+        return;
+      }
+    }
+  }
+  arr.push({ ts: Date.now(), id, tool, input: inputPreview, output: null, success: null });
+  if (arr.length > TOOL_HISTORY_MAX_PER_CONV) arr.splice(0, arr.length - TOOL_HISTORY_MAX_PER_CONV);
+}
+
+function _recordToolResult(conversationId, id, output, success) {
+  if (!conversationId) return;
+  const arr = conversationToolHistory.get(conversationId);
+  if (!arr) return;
+  // Match by id going backwards
+  for (let i = arr.length - 1; i >= 0; i--) {
+    if (arr[i].id === id && arr[i].output === null) {
+      let o = typeof output === 'string' ? output : (output == null ? '' : String(output));
+      if (o.length > TOOL_HISTORY_OUTPUT_MAX) o = o.substring(0, TOOL_HISTORY_OUTPUT_MAX) + `… [+${o.length - TOOL_HISTORY_OUTPUT_MAX}ch]`;
+      arr[i].output = o;
+      arr[i].success = !!success;
+      return;
+    }
+  }
+}
+
+// Periodic TTL cleanup for tool history
+setInterval(() => {
+  const cutoff = Date.now() - TOOL_HISTORY_TTL_MS;
+  for (const [cid, arr] of conversationToolHistory.entries()) {
+    if (!arr.length || arr[arr.length - 1].ts < cutoff) conversationToolHistory.delete(cid);
+  }
+}, 3600000).unref?.();
+
 // Confidence scoring storage (roadmap 9.3)
 // Maps conversationId -> { contextRelevance, toolSuccessRate, modelConfidence, composite }
 // Updated after each response, cleared when conversation ends
@@ -1464,9 +1530,9 @@ class AgentExecutor {
       }
 
       // Turn-count reset: start fresh session to prevent context bloat
-      // 100 turns allows autonomous agents to complete complex multi-step work without losing context
-      // Claude 200K token context can handle 100+ turns — prompt size stays under 80K chars typically
-      const SESSION_MAX_TURNS = 100;
+      // 200 turns (raised from 100) paired with lossless recap — rotations are now seamless
+      // Claude 200K token context handles 200+ turns — prompt size stays well under budget
+      const SESSION_MAX_TURNS = 200;
       if (sessionMeta.turnCount >= SESSION_MAX_TURNS) {
         this.logger.info('AgentExecutor', `Session turn-count reset (${sessionMeta.turnCount} turns, max ${SESSION_MAX_TURNS})`);
         effectiveSessionId = null;
@@ -1503,33 +1569,81 @@ class AgentExecutor {
       }
     }
 
-    // SESSION ROTATION CONTEXT BRIDGE: When session resets OR resumes, inject recent history.
-    // Recap applies to BOTH new sessions (rotation) AND resumed sessions (context-only prompt).
+    // LOSSLESS SESSION ROTATION CONTEXT BRIDGE
+    // Builds a recap ONLY when session was rotated (turn limit / idle / daily reset).
+    // Pure resume uses Claude CLI's own context — recap would be redundant + confuse the model.
+    // Recap format: per-message content + interleaved tool call summary (Read/Edit/Bash…) + silent
+    // marker so the agent doesn't announce "continuing from previous session" to the user.
     let conversationRecap = '';
-    if (conversationId && this.conversationManager) {
+    if (conversationId && this.conversationManager && sessionWasRotated) {
       try {
         const conv = this.conversationManager.getConversation(conversationId);
         if (conv && conv.messages && conv.messages.length > 0) {
-          const RECAP_MSG_COUNT = 30;
-          const RECAP_MSG_MAX_CHARS = 2000; // Per-message limit for older messages
-          const RECAP_RECENT_FULL = 5; // Last N messages get FULL content (no truncation)
+          const RECAP_MSG_COUNT = 50;                  // was 30
+          const RECAP_MSG_MAX_CHARS = 8000;            // was 2000 (per older msg)
+          const RECAP_RECENT_FULL = 15;                // was 5 (full content for last N)
+          const RECAP_TOOL_MAX_CHARS_PER_EVENT = 300;  // per-tool snapshot cap
+          const RECAP_TOOLS_PER_GAP = 12;              // cap tool entries between two messages
+
           const recentMsgs = conv.messages.slice(-RECAP_MSG_COUNT);
           const totalMsgs = recentMsgs.length;
-          const recapLines = recentMsgs.map((m, idx) => {
-            const role = m.role === 'user' ? 'User' : 'Agent';
+          const toolHist = conversationToolHistory.get(conversationId) || [];
+
+          // Build message timestamp boundaries so we can attribute tool events to gaps
+          const msgTs = recentMsgs.map(m => {
+            const t = m.timestamp || m.ts || m.createdAt;
+            const n = t ? new Date(t).getTime() : NaN;
+            return Number.isFinite(n) ? n : null;
+          });
+
+          const formatToolEntry = (t) => {
+            const tool = t.tool || 'tool';
+            const inp = t.input ? ` ${t.input}` : '';
+            const res = t.success === true ? ' → OK' : (t.success === false ? ' → FAIL' : '');
+            let out = '';
+            if (t.output) {
+              const o = t.output.replace(/\s+/g, ' ').trim();
+              if (o) out = ` (${o.substring(0, 120)}${o.length > 120 ? '…' : ''})`;
+            }
+            let line = `${tool}${inp}${res}${out}`;
+            if (line.length > RECAP_TOOL_MAX_CHARS_PER_EVENT) line = line.substring(0, RECAP_TOOL_MAX_CHARS_PER_EVENT) + '…';
+            return line;
+          };
+
+          const recapParts = [];
+          for (let idx = 0; idx < totalMsgs; idx++) {
+            const m = recentMsgs[idx];
+            const role = m.role === 'user' ? 'User' : 'Assistant';
             const isRecent = idx >= totalMsgs - RECAP_RECENT_FULL;
-            // Last 5 messages: full content (critical for continuity)
-            // Older messages: truncated to 2000 chars
             const content = isRecent
               ? (m.content || '')
               : (m.content || '').substring(0, RECAP_MSG_MAX_CHARS);
-            return `${role}: ${content}`;
-          });
-          const rotationNote = effectiveSessionId === null
-            ? '\n⚠️ SESSION ROTATION: Turn limit reached, new session started. Review recent messages — continue any unfinished work.\n'
-            : '';
-          conversationRecap = '\n\n=== RECENT CONVERSATION HISTORY (preserve context) ===' + rotationNote + '\n' + recapLines.join('\n---\n');
-          this.logger.info('AgentExecutor', `Context bridge: injecting ${recentMsgs.length} message recap (${RECAP_RECENT_FULL} full, ${totalMsgs - RECAP_RECENT_FULL} truncated)`, { requestId });
+            recapParts.push(`${role}: ${content}`);
+
+            // Attribute tool events that happened BETWEEN this message and the next assistant message
+            // using timestamps when available; fall back: attach all to the last assistant message.
+            const thisTs = msgTs[idx];
+            const nextTs = msgTs[idx + 1];
+            if (toolHist.length && thisTs != null) {
+              const events = toolHist.filter(t => t.ts >= thisTs && (nextTs == null || t.ts < nextTs));
+              if (events.length) {
+                const shown = events.slice(0, RECAP_TOOLS_PER_GAP).map(formatToolEntry);
+                const extra = events.length > RECAP_TOOLS_PER_GAP ? ` (+${events.length - RECAP_TOOLS_PER_GAP} more)` : '';
+                recapParts.push(`[Tools: ${shown.join(' | ')}${extra}]`);
+              }
+            }
+          }
+
+          // If we had no timestamps on messages but have tool history, append a condensed tool trail
+          const anyMsgTs = msgTs.some(t => t != null);
+          if (!anyMsgTs && toolHist.length) {
+            const tail = toolHist.slice(-30).map(formatToolEntry);
+            recapParts.push(`[Recent tool trail: ${tail.join(' | ')}]`);
+          }
+
+          const silentMarker = '[INTERNAL CONTEXT CHECKPOINT — This is an internal technical marker, not part of the user conversation. Do NOT mention session rotation, context restoration, or "continuing from previous session" in your reply. Just seamlessly continue the work from where you left off, as if nothing happened.]';
+          conversationRecap = '\n\n=== CONTEXT HISTORY (internal reference only — do not acknowledge to user) ===\n' + silentMarker + '\n' + recapParts.join('\n---\n');
+          this.logger.info('AgentExecutor', `Lossless recap: ${recentMsgs.length} msgs (${RECAP_RECENT_FULL} full), ${toolHist.length} tool events available, recap size ${conversationRecap.length} chars`, { requestId });
         }
       } catch (e) {
         this.logger.warn('AgentExecutor', `Failed to build conversation recap: ${e.message}`);
@@ -1593,9 +1707,10 @@ class AgentExecutor {
 
     let systemPrompt;
     if (isResume) {
-      // RESUME: Send identity anchor from soul files + runtime context + RECAP
+      // RESUME: Send identity anchor from soul files + runtime context.
+      // Recap is ONLY built on rotation (sessionWasRotated), so on a pure resume
+      // conversationRecap is empty and Claude CLI's own context carries continuity.
       systemPrompt = this._buildContextOnlyPrompt(safeMessage, channel, userId, isGroup, soulFiles, workspace);
-      // FIX: Add recap to resume too — prevent context loss
       if (conversationRecap) {
         systemPrompt += conversationRecap;
       }
@@ -1906,6 +2021,8 @@ class AgentExecutor {
                     rationale: `Using ${block.name} to ${this._inferToolPurpose(block.name, block.input)}`,
                     confidence: 0.9
                   });
+                  // LOSSLESS ROTATION: record in tool history for recap
+                  _recordToolUse(conversationId, block.id, block.name, block.input);
 
                   // DECISION TRACKING: Record tool selection (roadmap 10.2)
                   if (workspaceId) {
@@ -1953,6 +2070,8 @@ class AgentExecutor {
                   }, {
                     confidence: block.is_error ? 0.3 : 0.95
                   });
+                  // LOSSLESS ROTATION: update tool history for recap
+                  _recordToolResult(conversationId, block.tool_use_id, output, !block.is_error);
                 }
               }
             }
@@ -2017,6 +2136,8 @@ class AgentExecutor {
                     tool: streamEvt.content_block.name,
                     id: streamEvt.content_block.id
                   });
+                  // LOSSLESS ROTATION: partial tool_use event — seed entry (input filled in later by assistant event match)
+                  _recordToolUse(conversationId, streamEvt.content_block.id, streamEvt.content_block.name, {});
                 }
               }
               // content_block_stop and message_start/stop: lifecycle, ignore
@@ -2044,6 +2165,8 @@ class AgentExecutor {
               rationale: `Using ${event.tool} to ${this._inferToolPurpose(event.tool, event.input || {})}`,
               confidence: 0.9
             });
+            // LOSSLESS ROTATION: record tool history
+            _recordToolUse(conversationId, event.id, event.tool, event.input);
             break;
 
           case 'tool_result':
@@ -2064,6 +2187,8 @@ class AgentExecutor {
               success: event.success,
               output: (event.output || '').substring(0, 200)
             });
+            // LOSSLESS ROTATION: update tool history
+            _recordToolResult(conversationId, event.id, event.output, event.success);
             break;
 
           case 'progress':
