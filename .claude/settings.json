@@ -35,6 +35,14 @@
             "command": "# SSOT_PROMPT_REMINDER\njq -nc '{\"hookSpecificOutput\":{\"hookEventName\":\"UserPromptSubmit\",\"additionalContext\":\"ENFORCED RULES:\\n1. No destructive tests with real data (Rule 001): Never use real workspace IDs, agent IDs, or production data in DELETE or PUT tests. Always use temporary or mock IDs for\\n2. Clean up after every task (Rule 002): After every task, clean up temporary files, unused variables, debug logs, and test artifacts. Leaving garbage creates te\\n3. No assumptions — verify before claiming (Rule 003): Never claim something is true without evidence. Before saying \\\"X doesn't exist\\\" or \\\"Y is unused,\\\" search for it. Every c\\n4. Honesty — don't say done if it's not done (Rule 004): If a task isn't complete, don't say it is. If something is broken, admit it. If you're not sure, say so.\n\nEvery tick, ev\\n5. Response audit — block unverified claims (Rule 005): Every response is audited after completion. If it contains unverified claims, the response is blocked and must be rewrit\\n6. No sloppy work — think before you write (Rule 006): Think before every output. Don't rush. Don't write the first thing that comes to mind. Don't respond without reading.\n\n-\\n7. Push requires runtime verification — syntax check alone is not enough (Rule 007): Before committing and pushing any change to a repository, the change must be verified to work at runtime. `node -c` synt\"}}'"
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "# SSOT_CLEANUP_BASELINE - capture /tmp, Desktop, Downloads, long-lived procs snapshot\n# on first UserPromptSubmit. Stop hook diffs against this. Idempotent.\nBASEDIR=$(cd \"$(dirname \"$0\")/../..\" 2>/dev/null && pwd || echo \"$PWD\")\nSID=$(jq -r '.session_id // \"default\"' 2>/dev/null)\n\"$BASEDIR/scripts/cleanup-tracker.sh\" baseline \"$SID\" 2>/dev/null || true"
+          }
+        ]
       }
     ],
     "PostToolUse": [
@@ -107,6 +115,10 @@
           {
             "type": "command",
             "command": "# SSOT_STOP_BANDAID — bug fix without root cause analysis detection\nBASEDIR=$(cd \"$(dirname \"$0\")/../..\" 2>/dev/null && pwd || echo \"$PWD\")\nsource \"$BASEDIR/scripts/hook-helper.sh\"\nhook_stdin\ncheck_hook_active\ntp=\"$_HOOK_TRANSCRIPT_PATH\"\nif [ -z \"$tp\" ] || [ ! -f \"$tp\" ]; then exit 0; fi\nhas_fix=$(grep -ciE 'fix|bug|error|crash|broken|patch' \"$tp\" 2>/dev/null || true)\nhas_edit=$(grep -c '\"tool_name\":\"Edit\"\\|\"tool_name\":\"Write\"' \"$tp\" 2>/dev/null || true)\nif [ \"$has_fix\" -lt 2 ] || [ \"$has_edit\" -lt 1 ]; then exit 0; fi\nhas_rootcause=$(grep -ciE 'root.?cause|impact.?scan|same.?pattern|grep -r|grep -rn|codebase.*scan|other.?place|regression|guard|permanent fix' \"$tp\" 2>/dev/null || true)\nif [ \"$has_rootcause\" -lt 1 ]; then\n  emit_block \"BAND-AID GUARD: Bug fix detected but no root cause analysis trace found. Find the root cause, scan codebase for same pattern (grep -r), add permanent guard. Band-aid fixes are FORBIDDEN.\"\nfi"
+          },
+          {
+            "type": "command",
+            "command": "# SSOT_STOP_CLEANUP_DYNAMIC - session-scoped artifact diff, no static patterns.\n# Baseline captured at UserPromptSubmit; this diffs current state. Files/dirs/procs\n# that this session created and did not clean up -> BLOCK with exact cleanup cmds.\nBASEDIR=$(cd \"$(dirname \"$0\")/../..\" 2>/dev/null && pwd || echo \"$PWD\")\nsource \"$BASEDIR/scripts/hook-helper.sh\"\nhook_stdin\ncheck_hook_active\nSID=$(echo \"$HOOK_STDIN\" | jq -r '.session_id // \"default\"' 2>/dev/null)\nviolations=$(\"$BASEDIR/scripts/cleanup-tracker.sh\" audit \"$SID\" 2>/dev/null || true)\nif [ -n \"$violations\" ]; then\n  detail=$(echo \"$violations\" | awk -F\"|\" '{\n    if ($1==\"FILE\") printf \"  rm -f %s\\n\", $2;\n    else if ($1==\"DIR\") printf \"  rm -rf %s\\n\", $2;\n    else if ($1==\"PROC\") printf \"  kill %s    # %s\\n\", $2, $3;\n  }')\n  emit_block \"RULE 021 CLEANUP BLOCK - this session created artifacts that were never cleaned up. Run these commands, verify they succeed, then retry:\\n\\n$detail\"\nfi"
           }
         ]
       }
