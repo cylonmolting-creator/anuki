@@ -415,6 +415,22 @@ test.describe('Message Formatting (XSS & Markdown)', () => {
       (m) => window.addMessage('assistant', m + ' · Use the `npm install` command'),
       marker
     );
+    // Collect diagnostic DOM state so any failure has file:line evidence.
+    const dump = await page.evaluate((m) => {
+      const msgs = Array.from(document.querySelectorAll('.message.assistant'));
+      const containing = msgs.filter((el) => (el.textContent || '').includes(m));
+      return {
+        totalMsgs: msgs.length,
+        containing: containing.length,
+        lastHtml: msgs.length ? msgs[msgs.length - 1].innerHTML.slice(0, 200) : null,
+        containingHtml: containing.length ? containing[0].innerHTML.slice(0, 200) : null,
+        welcomePresent: !!document.querySelector('.welcome'),
+      };
+    }, marker);
+    expect(
+      dump.containing,
+      `marker-scoped message missing; dump=${JSON.stringify(dump)}`
+    ).toBeGreaterThanOrEqual(1);
     const scoped = page.locator('.message.assistant', { hasText: marker });
     const inlineCode = scoped.locator('code');
     await expect(inlineCode).toBeVisible();
