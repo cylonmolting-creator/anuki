@@ -388,48 +388,49 @@ test.describe('Message Formatting (XSS & Markdown)', () => {
     expect(html).toContain('<strong>bold</strong>');
   });
 
+  // Helper: call addMessage and pin the newly-added element with a
+  // data-test-id attribute. Subsequent assertions target this pin, which
+  // sidesteps all suite-order / page-reload ambiguity.
+  async function addPinned(page, pin, content) {
+    await page.evaluate(
+      ({ p, c }) => {
+        window.addMessage('assistant', c);
+        const nodes = document.querySelectorAll('.message.assistant');
+        if (nodes.length > 0) {
+          nodes[nodes.length - 1].setAttribute('data-test-id', p);
+        }
+      },
+      { p: pin, c: content }
+    );
+  }
+
   test('code blocks render correctly', async ({ page }) => {
     await page.goto('/');
-    // Use a unique sentinel in the payload so the test can scope its
-    // assertions to exactly the message it just injected, independent of
-    // any messages left from earlier tests in the same describe block
-    // (Playwright reuses the browser context; earlier addMessage calls
-    // leave <strong>/<code> elements that would trigger strict-mode
-    // multi-match violations on a bare `.message.assistant strong`).
-    const sentinel = 'sentinel-code-' + Date.now();
-    await page.evaluate((s) => {
-      window.addMessage('assistant', '```js\nconsole.log("' + s + '");\n```');
-    }, sentinel);
-    const scoped = page.locator('.message.assistant', { hasText: sentinel });
-    await expect(scoped).toBeVisible();
-    const codeBlock = scoped.locator('pre code');
+    await addPinned(page, 'pin-code-' + Date.now(), '```js\nconsole.log("hello");\n```');
+    const pinned = page.locator('.message.assistant[data-test-id^="pin-code-"]');
+    await expect(pinned).toBeVisible();
+    const codeBlock = pinned.locator('pre code');
     await expect(codeBlock).toBeVisible();
     const text = await codeBlock.textContent();
-    expect(text).toContain(sentinel);
+    expect(text).toContain('console.log');
   });
 
   test('inline code renders correctly', async ({ page }) => {
     await page.goto('/');
-    const sentinel = 'sentinel-inline-' + Date.now();
-    await page.evaluate((s) => {
-      window.addMessage('assistant', 'marker ' + s + ' with `npm install` inside');
-    }, sentinel);
-    const scoped = page.locator('.message.assistant', { hasText: sentinel });
-    await expect(scoped).toBeVisible();
-    const inlineCode = scoped.locator('code');
+    await addPinned(page, 'pin-inline-' + Date.now(), 'Use the `npm install` command');
+    const pinned = page.locator('.message.assistant[data-test-id^="pin-inline-"]');
+    await expect(pinned).toBeVisible();
+    const inlineCode = pinned.locator('code');
     await expect(inlineCode).toBeVisible();
     await expect(inlineCode).toHaveText('npm install');
   });
 
   test('bold text renders correctly', async ({ page }) => {
     await page.goto('/');
-    const sentinel = 'sentinel-bold-' + Date.now();
-    await page.evaluate((s) => {
-      window.addMessage('assistant', s + ': This is **important** text');
-    }, sentinel);
-    const scoped = page.locator('.message.assistant', { hasText: sentinel });
-    await expect(scoped).toBeVisible();
-    const bold = scoped.locator('strong');
+    await addPinned(page, 'pin-bold-' + Date.now(), 'This is **important** text');
+    const pinned = page.locator('.message.assistant[data-test-id^="pin-bold-"]');
+    await expect(pinned).toBeVisible();
+    const bold = pinned.locator('strong');
     await expect(bold).toBeVisible();
     await expect(bold).toHaveText('important');
   });
