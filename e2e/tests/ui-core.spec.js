@@ -388,14 +388,23 @@ test.describe('Message Formatting (XSS & Markdown)', () => {
     expect(html).toContain('<strong>bold</strong>');
   });
 
-  // An earlier test in this describe block ('user messages are plain text')
-  // triggers a real sendBtn.click() which opens a live WS turn. That
-  // agent's streaming assistant reply can race into later tests and land
-  // as the LAST .message.assistant in the DOM. `.last()` would then
-  // target that unrelated message and fail. Use a unique marker in every
-  // injected payload and scope assertions to the message containing it.
+  // Two independent hazards this describe block has to handle:
+  //  1. An earlier test in this block triggers sendBtn.click() which opens
+  //     a real WS turn — streaming assistant replies can land in the DOM
+  //     of later tests. Scope assertions with a unique marker.
+  //  2. page.goto('/') returns on 'load', but the inline <script> that
+  //     defines window.addMessage runs slightly after. The first test
+  //     after goto can race ahead of that definition, so each test waits
+  //     for addMessage to exist on window before injecting.
+  async function waitForAddMessage(page) {
+    await page.waitForFunction(() => typeof window.addMessage === 'function', {
+      timeout: 5000,
+    });
+  }
+
   test('code blocks render correctly', async ({ page }) => {
     await page.goto('/');
+    await waitForAddMessage(page);
     const marker = 'MK-code-' + Date.now();
     await page.evaluate(
       (m) => window.addMessage('assistant', '```js\nconsole.log("' + m + '");\n```'),
@@ -410,27 +419,12 @@ test.describe('Message Formatting (XSS & Markdown)', () => {
 
   test('inline code renders correctly', async ({ page }) => {
     await page.goto('/');
+    await waitForAddMessage(page);
     const marker = 'MK-inline-' + Date.now();
     await page.evaluate(
       (m) => window.addMessage('assistant', m + ' · Use the `npm install` command'),
       marker
     );
-    // Collect diagnostic DOM state so any failure has file:line evidence.
-    const dump = await page.evaluate((m) => {
-      const msgs = Array.from(document.querySelectorAll('.message.assistant'));
-      const containing = msgs.filter((el) => (el.textContent || '').includes(m));
-      return {
-        totalMsgs: msgs.length,
-        containing: containing.length,
-        lastHtml: msgs.length ? msgs[msgs.length - 1].innerHTML.slice(0, 200) : null,
-        containingHtml: containing.length ? containing[0].innerHTML.slice(0, 200) : null,
-        welcomePresent: !!document.querySelector('.welcome'),
-      };
-    }, marker);
-    expect(
-      dump.containing,
-      `marker-scoped message missing; dump=${JSON.stringify(dump)}`
-    ).toBeGreaterThanOrEqual(1);
     const scoped = page.locator('.message.assistant', { hasText: marker });
     const inlineCode = scoped.locator('code');
     await expect(inlineCode).toBeVisible();
@@ -439,6 +433,7 @@ test.describe('Message Formatting (XSS & Markdown)', () => {
 
   test('bold text renders correctly', async ({ page }) => {
     await page.goto('/');
+    await waitForAddMessage(page);
     const marker = 'MK-bold-' + Date.now();
     await page.evaluate(
       (m) => window.addMessage('assistant', m + ' · This is **important** text'),
