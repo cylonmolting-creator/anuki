@@ -393,7 +393,11 @@ test.describe('Message Formatting (XSS & Markdown)', () => {
     await page.evaluate(() => {
       window.addMessage('assistant', '```js\nconsole.log("hello");\n```');
     });
-    const codeBlock = page.locator('.message.assistant pre code');
+    // Scope to the LAST assistant message so previous tests' markdown
+    // (e.g. the XSS test's <strong>bold</strong>) doesn't trigger
+    // Playwright's strict-mode multi-match violation.
+    const lastMsg = page.locator('.message.assistant').last();
+    const codeBlock = lastMsg.locator('pre code');
     await expect(codeBlock).toBeVisible();
     const text = await codeBlock.textContent();
     expect(text).toContain('console.log');
@@ -404,7 +408,8 @@ test.describe('Message Formatting (XSS & Markdown)', () => {
     await page.evaluate(() => {
       window.addMessage('assistant', 'Use the `npm install` command');
     });
-    const inlineCode = page.locator('.message.assistant code');
+    const lastMsg = page.locator('.message.assistant').last();
+    const inlineCode = lastMsg.locator('code');
     await expect(inlineCode).toBeVisible();
     await expect(inlineCode).toHaveText('npm install');
   });
@@ -414,7 +419,10 @@ test.describe('Message Formatting (XSS & Markdown)', () => {
     await page.evaluate(() => {
       window.addMessage('assistant', 'This is **important** text');
     });
-    const bold = page.locator('.message.assistant strong');
+    // Scope to the LAST assistant message to avoid strict-mode violation
+    // when earlier tests (e.g. XSS) have added their own <strong> elements.
+    const lastMsg = page.locator('.message.assistant').last();
+    const bold = lastMsg.locator('strong');
     await expect(bold).toBeVisible();
     await expect(bold).toHaveText('important');
   });
