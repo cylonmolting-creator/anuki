@@ -388,38 +388,48 @@ test.describe('Message Formatting (XSS & Markdown)', () => {
     expect(html).toContain('<strong>bold</strong>');
   });
 
+  // An earlier test in this describe block ('user messages are plain text')
+  // triggers a real sendBtn.click() which opens a live WS turn. That
+  // agent's streaming assistant reply can race into later tests and land
+  // as the LAST .message.assistant in the DOM. `.last()` would then
+  // target that unrelated message and fail. Use a unique marker in every
+  // injected payload and scope assertions to the message containing it.
   test('code blocks render correctly', async ({ page }) => {
     await page.goto('/');
-    await page.evaluate(() => {
-      window.addMessage('assistant', '```js\nconsole.log("hello");\n```');
-    });
-    // Scope to last message so Playwright strict-mode doesn't trip when
-    // earlier tests in the describe block left <code>/<strong> nodes behind.
-    const last = page.locator('.message.assistant').last();
-    const codeBlock = last.locator('pre code');
+    const marker = 'MK-code-' + Date.now();
+    await page.evaluate(
+      (m) => window.addMessage('assistant', '```js\nconsole.log("' + m + '");\n```'),
+      marker
+    );
+    const scoped = page.locator('.message.assistant', { hasText: marker });
+    const codeBlock = scoped.locator('pre code');
     await expect(codeBlock).toBeVisible();
     const text = await codeBlock.textContent();
-    expect(text).toContain('console.log');
+    expect(text).toContain(marker);
   });
 
   test('inline code renders correctly', async ({ page }) => {
     await page.goto('/');
-    await page.evaluate(() => {
-      window.addMessage('assistant', 'Use the `npm install` command');
-    });
-    const last = page.locator('.message.assistant').last();
-    const inlineCode = last.locator('code');
+    const marker = 'MK-inline-' + Date.now();
+    await page.evaluate(
+      (m) => window.addMessage('assistant', m + ' · Use the `npm install` command'),
+      marker
+    );
+    const scoped = page.locator('.message.assistant', { hasText: marker });
+    const inlineCode = scoped.locator('code');
     await expect(inlineCode).toBeVisible();
     await expect(inlineCode).toHaveText('npm install');
   });
 
   test('bold text renders correctly', async ({ page }) => {
     await page.goto('/');
-    await page.evaluate(() => {
-      window.addMessage('assistant', 'This is **important** text');
-    });
-    const last = page.locator('.message.assistant').last();
-    const bold = last.locator('strong');
+    const marker = 'MK-bold-' + Date.now();
+    await page.evaluate(
+      (m) => window.addMessage('assistant', m + ' · This is **important** text'),
+      marker
+    );
+    const scoped = page.locator('.message.assistant', { hasText: marker });
+    const bold = scoped.locator('strong');
     await expect(bold).toBeVisible();
     await expect(bold).toHaveText('important');
   });
