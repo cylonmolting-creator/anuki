@@ -17,6 +17,14 @@
             "command": "BASEDIR=$(cd \"$(dirname \"$0\")/../..\" 2>/dev/null && pwd || echo \"$PWD\"); node \"$BASEDIR/scripts/build-rules.js\" --quiet 2>/dev/null || true"
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "# SSOT_BIG_PICTURE_INJECT\nBASEDIR=$(cd \"$(dirname \"$0\")/../..\" 2>/dev/null && pwd || echo \"$PWD\")\nBP_FILE=\"$BASEDIR/docs/BIG-PICTURE.md\"\nif [ -f \"$BP_FILE\" ]; then\n  jq -Rsc --arg src \"$BP_FILE\" '{hookSpecificOutput:{hookEventName:\"SessionStart\",additionalContext:(\"\\n=== BIG-PICTURE methodology (from \" + $src + \") ===\\n\" + .)}}' < \"$BP_FILE\"\nfi"
+          }
+        ]
       }
     ],
     "UserPromptSubmit": [
