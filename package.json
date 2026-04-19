@@ -1,15 +1,16 @@
 {
   "name": "anuki",
   "version": "0.1.0",
-  "description": "Anuki — AI Agent LEGO Platform. Build your own multi-agent team.",
+  "description": "Anuki \u2014 AI Agent LEGO Platform. Build your own multi-agent team.",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
     "dev": "NODE_ENV=development node src/index.js",
     "test": "node scripts/test-boot.js",
     "test:boot": "node scripts/test-boot.js",
-    "test:e2e": "playwright test",
-    "build-rules": "node scripts/build-rules.js"
+    "test:e2e": "bash scripts/e2e-safe-run.sh",
+    "build-rules": "node scripts/build-rules.js",
+    "test:e2e:direct": "playwright test"
   },
   "keywords": [
     "anuki",
