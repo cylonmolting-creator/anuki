@@ -81,6 +81,18 @@
           {
             "type": "command",
             "command": "# SSOT_RULE_020 — Block edit without prior read\nfp=$(jq -r '.tool_input.file_path // empty'); sid=$(jq -r '.session_id // \"default\"'); sf=\"/tmp/anuki-read-files-$sid\"; if [ -z \"$fp\" ]; then exit 0; fi; if [ ! -f \"$fp\" ]; then exit 0; fi; if [ ! -f \"$sf\" ] || ! grep -qxF \"$fp\" \"$sf\" 2>/dev/null; then echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"RULE 020 BLOCK: You have not read this file yet. No assumptions — read first, then edit.\"}}'; fi"
+          },
+          {
+            "type": "command",
+            "command": "# SSOT_RULE_DYNAMIC — hardcoded count detection\ninput=$(cat)\nns=$(echo \"$input\" | jq -r '.tool_input.new_string // .tool_input.content // empty')\nif echo \"$ns\" | grep -qE '===\\s*(8|9|10|11|12)\\s*[;,)\\]]|agents\\.length\\s*===\\s*[0-9]+|workspaces\\.length\\s*===\\s*[0-9]+|count\\s*===\\s*[0-9]+'; then\n  echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"DYNAMIC-FIRST BLOCK: Hardcoded count detected (=== fixed number). Query dynamically from API — never hardcode counts.\"}}'\nfi"
+          },
+          {
+            "type": "command",
+            "command": "# SSOT_RULE_STACKPATCH — 5+ edits to same file detection\ninput=$(cat)\nfp=$(echo \"$input\" | jq -r '.tool_input.file_path // empty')\nsid=$(echo \"$input\" | jq -r '.session_id // \"default\"')\nef=\"/tmp/anuki-edit-counts-$sid\"\nif [ -z \"$fp\" ]; then exit 0; fi\necho \"$fp\" >> \"$ef\"\ncount=$(grep -cxF \"$fp\" \"$ef\" 2>/dev/null || true)\nif [ \"$count\" -ge 5 ]; then\n  echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"STACK PATCH BLOCK: 5+ edits to the same file detected — risk of patch-on-patch. STOP. Find root cause, diff against last working state, revert if needed.\"}}'\nfi"
+          },
+          {
+            "type": "command",
+            "command": "# SSOT_RULE_SDK — Anthropic SDK import detection\ninput=$(cat)\nns=$(echo \"$input\" | jq -r '.tool_input.new_string // .tool_input.content // empty')\nif echo \"$ns\" | grep -qE '@anthropic-ai/sdk|from anthropic import|require\\(.anthropic.\\)|import Anthropic|new Anthropic'; then\n  echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"SDK BLOCK: Anthropic SDK import is FORBIDDEN. This project uses Claude CLI spawn model. Do not suggest SDK migration.\"}}'\nfi"
           }
         ]
       }
@@ -91,6 +103,10 @@
           {
             "type": "command",
             "command": "# SSOT_STOP_AUDIT_005\nBASEDIR=$(cd \"$(dirname \"$0\")/../..\" 2>/dev/null && pwd || echo \"$PWD\")\nsource \"$BASEDIR/scripts/hook-helper.sh\"\nhook_stdin\ncheck_hook_active\nmsg=$(get_last_message)\nif [ -z \"$msg\" ]; then exit 0; fi\nhas_claim=$(echo \"$msg\" | grep -ciE \"unused|dead code|not needed|does not exist|not found|can be deleted|can be removed|unnecessary\" || true)\nhas_evidence=$(echo \"$msg\" | grep -cE \"\\.[a-z]{1,4}:[0-9]+|grep.*src/|verified|confirmed|PASS\" || true)\nif [ \"$has_claim\" -gt 0 ] && [ \"$has_evidence\" -eq 0 ]; then\n  emit_block \"RULE 005 AUDIT: Response contains unverified claims. Verify with evidence (file:line, grep, test results) and rewrite.\"\nfi"
+          },
+          {
+            "type": "command",
+            "command": "# SSOT_STOP_BANDAID — bug fix without root cause analysis detection\nBASEDIR=$(cd \"$(dirname \"$0\")/../..\" 2>/dev/null && pwd || echo \"$PWD\")\nsource \"$BASEDIR/scripts/hook-helper.sh\"\nhook_stdin\ncheck_hook_active\ntp=\"$_HOOK_TRANSCRIPT_PATH\"\nif [ -z \"$tp\" ] || [ ! -f \"$tp\" ]; then exit 0; fi\nhas_fix=$(grep -ciE 'fix|bug|error|crash|broken|patch' \"$tp\" 2>/dev/null || true)\nhas_edit=$(grep -c '\"tool_name\":\"Edit\"\\|\"tool_name\":\"Write\"' \"$tp\" 2>/dev/null || true)\nif [ \"$has_fix\" -lt 2 ] || [ \"$has_edit\" -lt 1 ]; then exit 0; fi\nhas_rootcause=$(grep -ciE 'root.?cause|impact.?scan|same.?pattern|grep -r|grep -rn|codebase.*scan|other.?place|regression|guard|permanent fix' \"$tp\" 2>/dev/null || true)\nif [ \"$has_rootcause\" -lt 1 ]; then\n  emit_block \"BAND-AID GUARD: Bug fix detected but no root cause analysis trace found. Find the root cause, scan codebase for same pattern (grep -r), add permanent guard. Band-aid fixes are FORBIDDEN.\"\nfi"
           }
         ]
       }

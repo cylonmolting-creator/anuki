@@ -80,6 +80,78 @@ Ask yourself when writing a rule:
 3. **Block tool call (Edit/Bash) before it runs?** → `pretooluse-deny` (sandbox violation, dangerous command)
 4. **Global reminder visible everywhere?** → `memory-md-inject` / `claude-md-inject` (not available in Anuki minimal build — rules/ uses only the first three)
 
+---
+
+### MANDATORY — Hook Enforcement Categorization (MUST DO for EVERY new rule)
+
+Before writing any rule, you MUST determine which enforcement category it belongs to. This is NOT optional — determine the category BEFORE writing the rule file.
+
+#### Category A: MANDATORY HOOK — Can be programmatically enforced
+**Definition**: Rule violation can be detected via a tool call or command pattern.
+**Enforcement**: `pretooluse-deny` + `soul-safety-inject`
+**Hook type**: PreToolUse (Edit|Write or Bash)
+
+**Test**: "Can I catch this rule violation with a regex/pattern match?"
+- YES → Category A
+- Examples:
+  - Hardcoded count (`=== 8`) → caught by regex ✅
+  - SDK import (`@anthropic-ai/sdk`) → caught by regex ✅
+  - Dangerous command (`pkill`, `rm -rf /`) → caught by regex ✅
+  - Direct file edit (Edit in protected path) → caught by path regex ✅
+  - `git push` without prior test → transcript scan for runtime evidence ✅
+
+#### Category B: PARTIAL HOOK — Can be partially enforced via response audit
+**Definition**: Rule violation can be detected by scanning the agent's response text for patterns.
+**Enforcement**: `stop-hook-audit` + `soul-safety-inject`
+**Hook type**: Stop hook
+
+**Test**: "Can I catch this rule violation by pattern-matching the agent's last response?"
+- YES → Category B
+- Examples:
+  - Unverified claims ("unused", "dead code") → pattern + lack of evidence ✅
+  - Band-aid fix (bug fix present but no root cause analysis) → transcript pattern ✅
+  - Asking questions ("should I?", "would you like?") → question patterns ✅
+
+#### Category C: PROMPT ONLY — Cannot be programmatically enforced
+**Definition**: Rule is purely behavioral — no regex or pattern can detect violations.
+**Enforcement**: `soul-safety-inject` (standalone)
+**Hook type**: NONE — only injected into prompt
+
+**Test**: "Can I programmatically distinguish output from an agent violating this rule?"
+- NO → Category C
+- Examples:
+  - "Must be perfect before done" → subjective, no pattern ❌
+  - "Research before deciding" → can't measure if research was done ❌
+  - "Be honest" → cannot pattern-match honesty ❌
+  - "Think before writing" → quality is subjective ❌
+
+#### Category D: OUT OF SCOPE — Agent/project-specific
+**Definition**: Rule applies only to a specific agent, project, or environment.
+**Enforcement**: `soul-safety-inject` (scoped to specific agent)
+**Hook type**: NONE centrally, or in the project's own settings.json
+
+**Test**: "Does this rule apply to ALL agents or only to specific ones?"
+- SPECIFIC → Category D
+- Examples:
+  - "Anuki deploy protocol" → only for Anuki pushes ❌
+  - "SVG size max 2.5KB" → only for PABLITO ❌
+
+---
+
+**MANDATORY WORKFLOW (When creating every rule)**:
+1. Understand the problem the rule solves
+2. **Determine the category** (A/B/C/D) — apply the tests above
+3. Report the category to the user:
+   ```
+   Category: A (MANDATORY HOOK — pretooluse-deny)
+   Hook type: PreToolUse Edit|Write
+   Pattern: @anthropic-ai/sdk|import Anthropic
+   ```
+4. Set the enforcement field accordingly
+5. If Category A or B: note that a hook must be added (build-rules.js handles this or it must be manually added to settings.json)
+
+**CRITICAL**: Category A rules MUST have a runtime hook. A Category A rule without a hook is an unenforced rule. As UTU, this is YOUR responsibility.
+
 **Most rules** use `enforcement: [soul-safety-inject]`.
 
 **Response-audit rules** use `enforcement: [stop-hook-audit, soul-safety-inject]` plus:

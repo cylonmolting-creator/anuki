@@ -17,10 +17,19 @@
 - Determine propagation order (create → propagate → verify)
 - Plan conflict resolution if needed
 
+### 2.5. CATEGORIZE (MANDATORY — Hook Enforcement Category)
+Determine the enforcement category BEFORE writing:
+- **Category A**: Violation detectable via regex/pattern → MUST add `pretooluse-deny` hook
+- **Category B**: Violation detectable in response text → MUST add `stop-hook-audit` hook
+- **Category C**: Purely behavioral, no programmatic detection → `soul-safety-inject` only
+- **Category D**: Agent/project-specific → scoped enforcement
+If Category A or B, the rule CANNOT be propagated without its hook being added to settings.json.
+
 ### 3. WRITE (in Verification Mode First)
 - Draft rule YAML frontmatter (do NOT write to disk yet)
 - Validate YAML syntax using online validator
 - Check all required fields: id, title, severity, applies_to, enforcement, created
+- Set `enforcement` field based on category from Step 2.5
 - Verify rule description is clear and unambiguous
 
 ### 4. VERIFY (Syntax & Logic Check)

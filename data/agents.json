@@ -122,7 +122,9 @@
           "audit-rules",
           "testing",
           "verification",
-          "writing"
+          "writing",
+          "research",
+          "analysis"
         ],
         "skills": [
           {
@@ -178,6 +180,18 @@
             "name": "writing",
             "category": "language",
             "description": "writing capability (auto-registered from soul files)"
+          },
+          {
+            "id": "skill-research",
+            "name": "research",
+            "category": "analysis",
+            "description": "research capability (auto-registered from soul files)"
+          },
+          {
+            "id": "skill-analysis",
+            "name": "analysis",
+            "category": "analysis",
+            "description": "analysis capability (auto-registered from soul files)"
           }
         ],
         "description": "UTU — Rule Guardian: creates, edits, and enforces rules",

@@ -65,3 +65,19 @@ Tell the user:
 - Currently existing rules: 001 (no destructive tests), 002 (clean up), 003 (no assumptions), 004 (honesty), 005 (response audit — Stop hook), 006 (no sloppy work), 007 (push runtime verified)
 - Rules can have different enforcement types — see TOOLS.md for details on `soul-safety-inject`, `stop-hook-audit`, and `pretooluse-deny`
 - Stop hook rules require additional fields: `stop_hook: true`, `stop_patterns`, `stop_reason`
+
+## MANDATORY — Hook Enforcement Categorization (Step 1.5)
+When creating any new rule, between Step 1 (UNDERSTAND) and Step 3 (WRITE), you MUST determine the rule's enforcement category:
+- **Category A**: Catchable via regex/pattern → `pretooluse-deny` MANDATORY
+- **Category B**: Catchable via response text pattern → `stop-hook-audit` MANDATORY
+- **Category C**: Behavioral, cannot programmatically enforce → `soul-safety-inject` only
+- **Category D**: Out of scope/agent-specific → scoped enforcement
+
+**CRITICAL**: Category A or B rules CANNOT be propagated without a hook. See TOOLS.md → "Hook Enforcement Categorization" section for details.
+
+Include the category in your report to the user:
+```
+Category: A (MANDATORY HOOK — pretooluse-deny)
+Hook type: PreToolUse Edit|Write
+Pattern: regex_here
+```
