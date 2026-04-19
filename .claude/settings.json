@@ -92,15 +92,15 @@
           },
           {
             "type": "command",
-            "command": "# SSOT_RULE_DYNAMIC — hardcoded count detection\ninput=$(cat)\nns=$(echo \"$input\" | jq -r '.tool_input.new_string // .tool_input.content // empty')\nif echo \"$ns\" | grep -qE '===\\s*(8|9|10|11|12)\\s*[;,)\\]]|agents\\.length\\s*===\\s*[0-9]+|workspaces\\.length\\s*===\\s*[0-9]+|count\\s*===\\s*[0-9]+'; then\n  echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"DYNAMIC-FIRST BLOCK: Hardcoded count detected (=== fixed number). Query dynamically from API — never hardcode counts.\"}}'\nfi"
-          },
-          {
-            "type": "command",
             "command": "# SSOT_RULE_STACKPATCH — 5+ edits to same file detection\ninput=$(cat)\nfp=$(echo \"$input\" | jq -r '.tool_input.file_path // empty')\nsid=$(echo \"$input\" | jq -r '.session_id // \"default\"')\nef=\"/tmp/anuki-edit-counts-$sid\"\nif [ -z \"$fp\" ]; then exit 0; fi\necho \"$fp\" >> \"$ef\"\ncount=$(grep -cxF \"$fp\" \"$ef\" 2>/dev/null || true)\nif [ \"$count\" -ge 5 ]; then\n  echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"STACK PATCH BLOCK: 5+ edits to the same file detected — risk of patch-on-patch. STOP. Find root cause, diff against last working state, revert if needed.\"}}'\nfi"
           },
           {
             "type": "command",
             "command": "# SSOT_RULE_SDK — Anthropic SDK import detection\ninput=$(cat)\nns=$(echo \"$input\" | jq -r '.tool_input.new_string // .tool_input.content // empty')\nif echo \"$ns\" | grep -qE '@anthropic-ai/sdk|from anthropic import|require\\(.anthropic.\\)|import Anthropic|new Anthropic'; then\n  echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"SDK BLOCK: Anthropic SDK import is FORBIDDEN. This project uses Claude CLI spawn model. Do not suggest SDK migration.\"}}'\nfi"
+          },
+          {
+            "type": "command",
+            "command": "# SSOT_RULE_DYNAMIC - hardcoded count detection (v4, word-boundary-exact)\n# Blocks === comparisons to fixed numbers (2+) on semantic count fields and\n# any .length === 8-12. Excludes === 0/1 (legit empty/singleton checks).\n# v4: count|total|num matched word-exact so 'countdown', 'totalSeconds',\n# 'numPages' don't false-positive.\ninput=$(cat)\nns=$(echo \"$input\" | jq -r '.tool_input.new_string // .tool_input.content // empty')\nif echo \"$ns\" | grep -qE '(agents|workspaces|channels|runningJobs|activeAgents|numAgents|agentCount|workspaceCount|totalAgents)\\.length\\s*===\\s*([2-9]|[0-9]{2,})\\b|\\b(count|total|num|agentCount|workspaceCount|totalAgents|numAgents)\\b\\s*===\\s*([2-9]|[0-9]{2,})\\b|\\.length\\s*===\\s*(8|9|10|11|12)\\s*[];,)]'; then\n  echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"DYNAMIC-FIRST BLOCK: Hardcoded count detected (=== fixed number on agents/workspaces/count field or .length === 8-12). Query dynamically from API - never hardcode counts. Rule 005.\"}}'\nfi"
           }
         ]
       }
