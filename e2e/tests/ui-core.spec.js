@@ -388,28 +388,15 @@ test.describe('Message Formatting (XSS & Markdown)', () => {
     expect(html).toContain('<strong>bold</strong>');
   });
 
-  // Helper: call addMessage and pin the newly-added element with a
-  // data-test-id attribute. Subsequent assertions target this pin, which
-  // sidesteps all suite-order / page-reload ambiguity.
-  async function addPinned(page, pin, content) {
-    await page.evaluate(
-      ({ p, c }) => {
-        window.addMessage('assistant', c);
-        const nodes = document.querySelectorAll('.message.assistant');
-        if (nodes.length > 0) {
-          nodes[nodes.length - 1].setAttribute('data-test-id', p);
-        }
-      },
-      { p: pin, c: content }
-    );
-  }
-
   test('code blocks render correctly', async ({ page }) => {
     await page.goto('/');
-    await addPinned(page, 'pin-code-' + Date.now(), '```js\nconsole.log("hello");\n```');
-    const pinned = page.locator('.message.assistant[data-test-id^="pin-code-"]');
-    await expect(pinned).toBeVisible();
-    const codeBlock = pinned.locator('pre code');
+    await page.evaluate(() => {
+      window.addMessage('assistant', '```js\nconsole.log("hello");\n```');
+    });
+    // Scope to last message so Playwright strict-mode doesn't trip when
+    // earlier tests in the describe block left <code>/<strong> nodes behind.
+    const last = page.locator('.message.assistant').last();
+    const codeBlock = last.locator('pre code');
     await expect(codeBlock).toBeVisible();
     const text = await codeBlock.textContent();
     expect(text).toContain('console.log');
@@ -417,20 +404,22 @@ test.describe('Message Formatting (XSS & Markdown)', () => {
 
   test('inline code renders correctly', async ({ page }) => {
     await page.goto('/');
-    await addPinned(page, 'pin-inline-' + Date.now(), 'Use the `npm install` command');
-    const pinned = page.locator('.message.assistant[data-test-id^="pin-inline-"]');
-    await expect(pinned).toBeVisible();
-    const inlineCode = pinned.locator('code');
+    await page.evaluate(() => {
+      window.addMessage('assistant', 'Use the `npm install` command');
+    });
+    const last = page.locator('.message.assistant').last();
+    const inlineCode = last.locator('code');
     await expect(inlineCode).toBeVisible();
     await expect(inlineCode).toHaveText('npm install');
   });
 
   test('bold text renders correctly', async ({ page }) => {
     await page.goto('/');
-    await addPinned(page, 'pin-bold-' + Date.now(), 'This is **important** text');
-    const pinned = page.locator('.message.assistant[data-test-id^="pin-bold-"]');
-    await expect(pinned).toBeVisible();
-    const bold = pinned.locator('strong');
+    await page.evaluate(() => {
+      window.addMessage('assistant', 'This is **important** text');
+    });
+    const last = page.locator('.message.assistant').last();
+    const bold = last.locator('strong');
     await expect(bold).toBeVisible();
     await expect(bold).toHaveText('important');
   });

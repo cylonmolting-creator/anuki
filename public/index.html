@@ -1039,6 +1039,17 @@
 
     function addMessage(type, content, agentName) {
       const messages = document.getElementById('messages');
+
+      // The welcome screen is a full-bleed overlay shown on first load.
+      // Previously only sendMessage() removed it, so any programmatic
+      // addMessage (WebSocket assistant reply before user sends anything,
+      // system notice on load, test injection) would append a message
+      // behind the overlay — visible in the DOM but obscured to the
+      // user. Self-contain the removal here so addMessage is the single
+      // source of truth for "a message is about to appear".
+      const welcome = document.querySelector('.welcome');
+      if (welcome) welcome.remove();
+
       const div = document.createElement('div');
       div.className = `message ${type}`;
 
