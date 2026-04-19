@@ -35,15 +35,24 @@ cleanup() {
   done
   # Sweep e2e-* workspaces tests may have left behind
   if command -v jq >/dev/null 2>&1; then
-    local hdr=()
-    [ -n "$TOKEN" ] && hdr=(-H "x-auth-token: $TOKEN")
-    curl -s "${hdr[@]}" "$BASE_URL/api/workspaces" 2>/dev/null \
+    # Build header args as a single string to avoid "unbound array" errors
+    # under set -u when TOKEN is empty and the array has zero elements.
+    local hdr_str=""
+    [ -n "$TOKEN" ] && hdr_str="x-auth-token: $TOKEN"
+    if [ -n "$hdr_str" ]; then
+      curl -s -H "$hdr_str" "$BASE_URL/api/workspaces" 2>/dev/null
+    else
+      curl -s "$BASE_URL/api/workspaces" 2>/dev/null
+    fi \
       | jq -r '.workspaces // . | if type=="array" then .[] else empty end | select((.name // "") | startswith("e2e-")) | .id' 2>/dev/null \
       | while read -r id; do
           [ -z "$id" ] && continue
           echo "  [cleanup] removing leftover e2e workspace: $id" >&2
-          curl -s "${hdr[@]}" -X DELETE \
-            "$BASE_URL/api/workspaces/$id?force=true" >/dev/null 2>&1 || true
+          if [ -n "$hdr_str" ]; then
+            curl -s -H "$hdr_str" -X DELETE "$BASE_URL/api/workspaces/$id?force=true" >/dev/null 2>&1 || true
+          else
+            curl -s -X DELETE "$BASE_URL/api/workspaces/$id?force=true" >/dev/null 2>&1 || true
+          fi
         done
   fi
   exit "$ec"
@@ -51,10 +60,16 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 echo "═══ Gate 1/3 — Pre-test backup ═══"
-hdr_args=()
-[ -n "$TOKEN" ] && hdr_args=(-H "x-auth-token: $TOKEN")
-backup_resp=$(curl -s -X POST -H "Content-Type: application/json" \
-  "${hdr_args[@]}" "$BASE_URL/api/backup/create" -d '{}' 2>/dev/null || true)
+# Single header string avoids "unbound array" under set -u when token is empty.
+AUTH_HDR=""
+[ -n "$TOKEN" ] && AUTH_HDR="x-auth-token: $TOKEN"
+if [ -n "$AUTH_HDR" ]; then
+  backup_resp=$(curl -s -X POST -H "Content-Type: application/json" -H "$AUTH_HDR" \
+    "$BASE_URL/api/backup/create" -d '{}' 2>/dev/null || true)
+else
+  backup_resp=$(curl -s -X POST -H "Content-Type: application/json" \
+    "$BASE_URL/api/backup/create" -d '{}' 2>/dev/null || true)
+fi
 backup_path=$(echo "$backup_resp" | jq -r '.path // .filename // empty' 2>/dev/null || echo "")
 if [ -n "$backup_path" ]; then
   echo "  backup: $backup_path"
