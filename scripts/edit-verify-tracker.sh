@@ -50,7 +50,7 @@ case "$CMD" in
     echo "$detail"
     echo ""
     echo "Fix each by: Read the file, verify/re-apply the edit, then run:"
-    echo "  $BASEDIR/scripts/edit-verify-tracker.sh clear $SID"
+    echo "  scripts/edit-verify-tracker.sh clear $SID"
     exit 1
     ;;
 
