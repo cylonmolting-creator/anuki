@@ -33,7 +33,7 @@ case "$CMD" in
       exit 0
     fi
     # Sample the first non-trivial line of new_string (first 40 alnum chars)
-    sample=$(echo "$ns" | head -5 | tr -d '\n' | sed 's/[^a-zA-Z0-9_ ]//g' | head -c 40)
+    sample=$(echo "$ns" | grep -m1 '[^ ]' | head -c 120)
     if [ -z "$sample" ]; then exit 0; fi
     if ! grep -qF "$sample" "$fp" 2>/dev/null; then
       echo "MISMATCH|$fp|expected: ${sample}" >> "$TRACKER"

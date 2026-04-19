@@ -7,7 +7,7 @@
       "event": "PreToolUse",
       "matcher": "Bash",
       "when": {
-        "command_regex": "curl.*-X\\s+(DELETE|PUT)|rm\\s+-[rRf]+",
+        "command_regex": "curl.*-X\\s+(DELETE|PUT)|rm\\s+-[fF]*[rR]",
         "command_not_regex": "/tmp/|/var/folders/"
       },
       "then": {

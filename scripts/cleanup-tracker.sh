@@ -39,10 +39,10 @@ snapshot_files() {
 }
 
 snapshot_procs() {
-  # Long-lived processes we care about: node, python, ruby, claude
+  # Long-lived processes we care about: node, python, ruby
+  # (claude CLI excluded — it's the agent runtime, not an orphan)
   # Format: PID|ETIME|CWD|CMD
-  # Skip CYLON master process itself (part of baseline by design)
-  # Match only processes whose binary basename is node/python/ruby/claude.
+  # Match only processes whose binary basename is node/python/ruby.
   # Using awk to match the first whitespace-separated token of the command
   # avoids false-positive matches on our own `grep` filter spawned in the pipe.
   ps -eo pid,etime,command 2>/dev/null \
@@ -53,7 +53,7 @@ snapshot_procs() {
         bin=$3;
         n=split(bin,parts,"/");
         base=parts[n];
-        if (base ~ /^(node|python|python3|ruby|claude)$/) print $1"|"$2"|"cmd
+        if (base ~ /^(node|python|python3|ruby)$/) print $1"|"$2"|"cmd
       }' \
     | grep -Ev 'Claude\.app|Claude Helper|cleanup-tracker\.sh' \
     | sort -u
