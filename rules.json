@@ -1,0 +1,117 @@
+{
+  "_doc": "Anuki enforcement manifest — single source of truth for hook-level rules. Schema in scripts/enforce.py. Add a rule = append to 'rules'. No .claude/settings.json edit needed.",
+  "rules": [
+    {
+      "id": "010",
+      "name": "destructive-real-id",
+      "event": "PreToolUse",
+      "matcher": "Bash",
+      "when": {
+        "command_regex": "curl.*-X\\s+(DELETE|PUT)|rm\\s+-[rRf]+",
+        "command_not_regex": "/tmp/|/var/folders/"
+      },
+      "then": {
+        "action": "deny",
+        "reason": "RULE 010 BLOCK: DELETE/PUT/rm-rf on real data forbidden. Use non-existent IDs or /tmp/* paths for tests."
+      }
+    },
+    {
+      "id": "014_sdk",
+      "name": "anthropic-sdk-forbidden",
+      "event": "PreToolUse",
+      "matcher": "Edit|Write",
+      "when": {
+        "content_regex": "@anthropic-ai/sdk|from anthropic import|require\\(.anthropic.\\)|import Anthropic|new Anthropic"
+      },
+      "then": {
+        "action": "deny",
+        "reason": "RULE 014 BLOCK: Anthropic SDK import forbidden. Anuki uses Claude CLI spawn model."
+      }
+    },
+    {
+      "id": "005_dynamic",
+      "name": "hardcoded-count-forbidden",
+      "event": "PreToolUse",
+      "matcher": "Edit|Write",
+      "when": {
+        "content_regex": "(agents|workspaces|channels|runningJobs|activeAgents|numAgents|agentCount|workspaceCount|totalAgents)\\.length\\s*===\\s*([2-9]|[0-9]{2,})\\b|\\b(count|total|num|agentCount|workspaceCount|totalAgents|numAgents)\\b\\s*===\\s*([2-9]|[0-9]{2,})\\b|\\.length\\s*===\\s*(8|9|10|11|12)\\s*[];,)]"
+      },
+      "then": {
+        "action": "deny",
+        "reason": "DYNAMIC-FIRST BLOCK: hardcoded count. Query dynamically from the API."
+      }
+    },
+    {
+      "id": "013",
+      "name": "stack-patch",
+      "event": "PreToolUse",
+      "matcher": "Edit|Write",
+      "plugin": "enforce-plugin-stackpatch.sh"
+    },
+    {
+      "id": "020",
+      "name": "read-before-edit",
+      "event": "PreToolUse",
+      "matcher": "Edit|Write",
+      "plugin": "enforce-plugin-read-before-edit.sh"
+    },
+    {
+      "id": "011",
+      "name": "soul-runtime-separation",
+      "event": "PreToolUse",
+      "matcher": "Edit|Write",
+      "plugin": "enforce-plugin-soul-runtime.sh"
+    },
+    {
+      "id": "012_record",
+      "name": "edit-verify-record",
+      "event": "PostToolUse",
+      "matcher": "Edit|Write",
+      "plugin": "enforce-plugin-edit-verify-record.sh"
+    },
+    {
+      "id": "012_audit",
+      "name": "edit-verify-audit",
+      "event": "Stop",
+      "plugin": "enforce-plugin-edit-verify-audit.sh"
+    },
+    {
+      "id": "020_read_tracker",
+      "name": "read-tracker",
+      "event": "PostToolUse",
+      "matcher": "Read|Grep",
+      "plugin": "enforce-plugin-read-tracker.sh"
+    },
+    {
+      "id": "021",
+      "name": "cleanup-baseline",
+      "event": "UserPromptSubmit",
+      "plugin": "enforce-plugin-cleanup-baseline.sh"
+    },
+    {
+      "id": "021_audit",
+      "name": "cleanup-audit",
+      "event": "Stop",
+      "plugin": "enforce-plugin-cleanup-audit.sh"
+    },
+    {
+      "id": "big-picture",
+      "name": "big-picture-methodology",
+      "event": "SessionStart",
+      "inject": "docs/BIG-PICTURE.md",
+      "label": "=== BIG-PICTURE methodology (injected by enforce.py) ==="
+    },
+    {
+      "id": "memory-md",
+      "name": "memory-md-inject",
+      "event": "SessionStart",
+      "plugin": "enforce-plugin-memory-inject.sh"
+    },
+    {
+      "id": "build-rules",
+      "name": "build-rules-runner",
+      "event": "SessionStart",
+      "plugin": "enforce-plugin-build-rules.sh"
+    }
+  ]
+}

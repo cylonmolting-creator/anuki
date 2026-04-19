@@ -6,23 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "BASEDIR=$(cd \"$(dirname \"$0\")/../..\" 2>/dev/null && pwd || echo \"$PWD\"); MEMDIR=\"$BASEDIR/workspace\"; content=''; for agent_dir in \"$MEMDIR\"/*/; do mem=\"${agent_dir}MEMORY.md\"; [ -f \"$mem\" ] && content=\"$content--- $(basename \"$agent_dir\") ---\n$(cat \"$mem\")\n\"; done; [ -z \"$content\" ] && exit 0; printf '%s' \"$content\" | jq -Rsc '{hookSpecificOutput:{hookEventName:\"SessionStart\",additionalContext:.}}'"
-          }
-        ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "BASEDIR=$(cd \"$(dirname \"$0\")/../..\" 2>/dev/null && pwd || echo \"$PWD\"); node \"$BASEDIR/scripts/build-rules.js\" --quiet 2>/dev/null || true"
-          }
-        ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "# SSOT_BIG_PICTURE_INJECT\nBASEDIR=$(cd \"$(dirname \"$0\")/../..\" 2>/dev/null && pwd || echo \"$PWD\")\nBP_FILE=\"$BASEDIR/docs/BIG-PICTURE.md\"\nif [ -f \"$BP_FILE\" ]; then\n  jq -Rsc --arg src \"$BP_FILE\" '{hookSpecificOutput:{hookEventName:\"SessionStart\",additionalContext:(\"\\n=== BIG-PICTURE methodology (from \" + $src + \") ===\\n\" + .)}}' < \"$BP_FILE\"\nfi"
+            "command": "bash \"$(cd \"$(dirname \"$0\")/../..\" && pwd)/scripts/enforce.sh\" SessionStart"
           }
         ]
       }
@@ -32,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "jq -nc '{hookSpecificOutput:{hookEventName:\"UserPromptSubmit\",additionalContext:\"ENFORCED RULES:\\n1. No Assumptions (Rule 003): Before claiming anything, search 5 locations (src/, public/, workspace/, data/, *.md). Every claim needs file:line proof.\\n2. Honesty (Rule 004): Do not say done if not done. Verify before reporting.\\n3. No Destructive Tests (Rule 001): Never use real IDs in DELETE/PUT operations.\\n4. Clean Up (Rule 002): Leave no garbage after every task.\"}}'"
+            "command": "bash \"$(cd \"$(dirname \"$0\")/../..\" && pwd)/scripts/enforce.sh\" UserPromptSubmit"
           }
         ]
       },
@@ -43,12 +27,24 @@
             "command": "# SSOT_PROMPT_REMINDER\njq -nc '{\"hookSpecificOutput\":{\"hookEventName\":\"UserPromptSubmit\",\"additionalContext\":\"ENFORCED RULES:\\n1. No destructive tests with real data (Rule 001): Never use real workspace IDs, agent IDs, or production data in DELETE or PUT tests. Always use temporary or mock IDs for\\n2. Clean up after every task (Rule 002): After every task, clean up temporary files, unused variables, debug logs, and test artifacts. Leaving garbage creates te\\n3. No assumptions — verify before claiming (Rule 003): Never claim something is true without evidence. Before saying \\\"X doesn't exist\\\" or \\\"Y is unused,\\\" search for it. Every c\\n4. Honesty — don't say done if it's not done (Rule 004): If a task isn't complete, don't say it is. If something is broken, admit it. If you're not sure, say so.\n\nEvery tick, ev\\n5. Response audit — block unverified claims (Rule 005): Every response is audited after completion. If it contains unverified claims, the response is blocked and must be rewrit\\n6. No sloppy work — think before you write (Rule 006): Think before every output. Don't rush. Don't write the first thing that comes to mind. Don't respond without reading.\n\n-\\n7. Push requires runtime verification — syntax check alone is not enough (Rule 007): Before committing and pushing any change to a repository, the change must be verified to work at runtime. `node -c` synt\"}}'"
           }
         ]
-      },
+      }
+    ],
+    "PreToolUse": [
       {
+        "matcher": "Edit|Write",
         "hooks": [
           {
             "type": "command",
-            "command": "# SSOT_CLEANUP_BASELINE - capture /tmp, Desktop, Downloads, long-lived procs snapshot\n# on first UserPromptSubmit. Stop hook diffs against this. Idempotent.\nBASEDIR=$(cd \"$(dirname \"$0\")/../..\" 2>/dev/null && pwd || echo \"$PWD\")\nSID=$(jq -r '.session_id // \"default\"' 2>/dev/null)\n\"$BASEDIR/scripts/cleanup-tracker.sh\" baseline \"$SID\" 2>/dev/null || true"
+            "command": "bash \"$(cd \"$(dirname \"$0\")/../..\" && pwd)/scripts/enforce.sh\" PreToolUse"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$(cd \"$(dirname \"$0\")/../..\" && pwd)/scripts/enforce.sh\" PreToolUse"
           }
         ]
       }
@@ -59,7 +55,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "# SSOT_RULE_012 - edit verify tracker (record phase)\nBASEDIR=$(cd \"$(dirname \"$0\")/../..\" 2>/dev/null && pwd || echo \"$PWD\")\nSID=$(jq -r '.session_id // \"default\"' 2>/dev/null)\ncat | \"$BASEDIR/scripts/edit-verify-tracker.sh\" record \"$SID\" 2>/dev/null || true"
+            "command": "bash \"$(cd \"$(dirname \"$0\")/../..\" && pwd)/scripts/enforce.sh\" PostToolUse"
           }
         ]
       },
@@ -68,51 +64,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "# SSOT_READ_TRACKER — Track read files for RULE 020 enforcement\nfp=$(jq -r '.tool_input.file_path // .tool_input.path // empty'); sid=$(jq -r '.session_id // \"default\"'); sf=\"/tmp/anuki-read-files-$sid\"; if [ -n \"$fp\" ]; then echo \"$fp\" >> \"$sf\"; sort -u -o \"$sf\" \"$sf\"; fi"
-          }
-        ]
-      }
-    ],
-    "PreToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "cmd=$(jq -r \".tool_input.command // empty\"); if echo \"$cmd\" | grep -qE \"^[[:space:]]*(pkill|killall)[[:space:]]\"; then jq -nc '{hookSpecificOutput:{hookEventName:\"PreToolUse\",additionalContext:\"BLOCKED: pkill/killall is dangerous. Use /api/safe-restart or /api/agents/:id/stop.\"}}'; exit 2; fi; if echo \"$cmd\" | grep -qE \"rm\\s+(-rf?\\s+)?(/|~|\\$HOME)\"; then jq -nc '{hookSpecificOutput:{hookEventName:\"PreToolUse\",additionalContext:\"BLOCKED: Destructive rm on home/root directory.\"}}'; exit 2; fi"
-          },
-          {
-            "type": "command",
-            "command": "# SSOT_RULE_010 — Block destructive DELETE/PUT/rm-rf on real data\ncmd=$(jq -r '.tool_input.command // empty'); is_exempt=$(echo \"$cmd\" | grep -qE '/tmp/|/var/folders/' && echo yes || echo no); if [ \"$is_exempt\" = \"no\" ] && echo \"$cmd\" | grep -qE 'curl.*-X[[:space:]]+(DELETE|PUT)|rm[[:space:]]+-[rRf]+'; then echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"RULE 010 BLOCK: DELETE/PUT/rm-rf with real IDs is FORBIDDEN. Use nonexistent/mock IDs for testing. 2026-04-06 incident: 9 workspaces were deleted.\"}}'; fi"
-          },
-          {
-            "type": "command",
-            "command": "BASEDIR=$(cd \"$(dirname \"$0\")/../..\" 2>/dev/null && pwd || echo \"$PWD\"); \"$BASEDIR/scripts/pre-push-gate.sh\""
-          }
-        ]
-      },
-      {
-        "matcher": "Edit|Write",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "# SSOT_RULE_020 — Block edit without prior read\nfp=$(jq -r '.tool_input.file_path // empty'); sid=$(jq -r '.session_id // \"default\"'); sf=\"/tmp/anuki-read-files-$sid\"; if [ -z \"$fp\" ]; then exit 0; fi; if [ ! -f \"$fp\" ]; then exit 0; fi; if [ ! -f \"$sf\" ] || ! grep -qxF \"$fp\" \"$sf\" 2>/dev/null; then echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"RULE 020 BLOCK: You have not read this file yet. No assumptions — read first, then edit.\"}}'; fi"
-          },
-          {
-            "type": "command",
-            "command": "# SSOT_RULE_STACKPATCH — 5+ edits to same file detection\ninput=$(cat)\nfp=$(echo \"$input\" | jq -r '.tool_input.file_path // empty')\nsid=$(echo \"$input\" | jq -r '.session_id // \"default\"')\nef=\"/tmp/anuki-edit-counts-$sid\"\nif [ -z \"$fp\" ]; then exit 0; fi\necho \"$fp\" >> \"$ef\"\ncount=$(grep -cxF \"$fp\" \"$ef\" 2>/dev/null || true)\nif [ \"$count\" -ge 5 ]; then\n  echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"STACK PATCH BLOCK: 5+ edits to the same file detected — risk of patch-on-patch. STOP. Find root cause, diff against last working state, revert if needed.\"}}'\nfi"
-          },
-          {
-            "type": "command",
-            "command": "# SSOT_RULE_SDK — Anthropic SDK import detection\ninput=$(cat)\nns=$(echo \"$input\" | jq -r '.tool_input.new_string // .tool_input.content // empty')\nif echo \"$ns\" | grep -qE '@anthropic-ai/sdk|from anthropic import|require\\(.anthropic.\\)|import Anthropic|new Anthropic'; then\n  echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"SDK BLOCK: Anthropic SDK import is FORBIDDEN. This project uses Claude CLI spawn model. Do not suggest SDK migration.\"}}'\nfi"
-          },
-          {
-            "type": "command",
-            "command": "# SSOT_RULE_DYNAMIC - hardcoded count detection (v4, word-boundary-exact)\n# Blocks === comparisons to fixed numbers (2+) on semantic count fields and\n# any .length === 8-12. Excludes === 0/1 (legit empty/singleton checks).\n# v4: count|total|num matched word-exact so 'countdown', 'totalSeconds',\n# 'numPages' don't false-positive.\ninput=$(cat)\nns=$(echo \"$input\" | jq -r '.tool_input.new_string // .tool_input.content // empty')\nif echo \"$ns\" | grep -qE '(agents|workspaces|channels|runningJobs|activeAgents|numAgents|agentCount|workspaceCount|totalAgents)\\.length\\s*===\\s*([2-9]|[0-9]{2,})\\b|\\b(count|total|num|agentCount|workspaceCount|totalAgents|numAgents)\\b\\s*===\\s*([2-9]|[0-9]{2,})\\b|\\.length\\s*===\\s*(8|9|10|11|12)\\s*[];,)]'; then\n  echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"DYNAMIC-FIRST BLOCK: Hardcoded count detected (=== fixed number on agents/workspaces/count field or .length === 8-12). Query dynamically from API - never hardcode counts. Rule 005.\"}}'\nfi"
-          },
-          {
-            "type": "command",
-            "command": "# SSOT_RULE_011 - soul vs runtime separation guard (WARN)\ninput=$(cat)\nfp=$(echo \"$input\" | jq -r '.tool_input.file_path // empty')\nif [ -z \"$fp\" ]; then exit 0; fi\nif ! echo \"$fp\" | grep -qE 'workspace/[^/]+/soul/[^/]+\\.md$'; then exit 0; fi\ntp=$(echo \"$input\" | jq -r '.transcript_path // empty')\nif [ -z \"$tp\" ] || [ ! -f \"$tp\" ]; then exit 0; fi\nerr_hits=$(tail -n 100 \"$tp\" 2>/dev/null | grep -ciE 'TypeError|ReferenceError|stack trace|at [A-Za-z_$][A-Za-z0-9_$]*\\.<?anonymous|executor\\.js:[0-9]+|\\bcrash\\b|uncaughtException|EADDRINUSE|ENOENT' || true)\nif [ \"$err_hits\" -ge 2 ]; then\n  jq -nc --arg f \"$fp\" '{hookSpecificOutput:{hookEventName:\"PreToolUse\",additionalContext:(\"RULE 011 NOTE: Editing soul file \" + $f + \" while recent transcript shows runtime error signatures. Soul files are PROMPTS, not runtime code. A ReferenceError / TypeError / crash is fixed in src/, NOT by adding a behavioral rule to the soul. Confirm this is a prompt-level change, not a band-aid for a runtime bug.\")}}'\nfi"
+            "command": "bash \"$(cd \"$(dirname \"$0\")/../..\" && pwd)/scripts/enforce.sh\" PostToolUse"
           }
         ]
       }
@@ -122,27 +74,15 @@
         "hooks": [
           {
             "type": "command",
+            "command": "bash \"$(cd \"$(dirname \"$0\")/../..\" && pwd)/scripts/enforce.sh\" Stop"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
             "command": "# SSOT_STOP_AUDIT_005\nBASEDIR=$(cd \"$(dirname \"$0\")/../..\" 2>/dev/null && pwd || echo \"$PWD\")\nsource \"$BASEDIR/scripts/hook-helper.sh\"\nhook_stdin\ncheck_hook_active\nmsg=$(get_last_message)\nif [ -z \"$msg\" ]; then exit 0; fi\nhas_claim=$(echo \"$msg\" | grep -ciE \"unused|dead code|not needed|does not exist|not found|can be deleted|can be removed|unnecessary\" || true)\nhas_evidence=$(echo \"$msg\" | grep -cE \"\\.[a-z]{1,4}:[0-9]+|grep.*src/|verified|confirmed|PASS\" || true)\nif [ \"$has_claim\" -gt 0 ] && [ \"$has_evidence\" -eq 0 ]; then\n  emit_block \"RULE 005 AUDIT: Response contains unverified claims. Verify with evidence (file:line, grep, test results) and rewrite.\"\nfi"
-          },
-          {
-            "type": "command",
-            "command": "# SSOT_STOP_BANDAID v2 - bug fix without root cause analysis detection\n# FIX: transcript uses \"type\":\"tool_use\"...\"name\":\"Edit\" (not \"tool_name\":\"Edit\")\nBASEDIR=$(cd \"$(dirname \"$0\")/../..\" 2>/dev/null && pwd || echo \"$PWD\")\nsource \"$BASEDIR/scripts/hook-helper.sh\"\nhook_stdin\ncheck_hook_active\ntp=\"$_HOOK_TRANSCRIPT_PATH\"\nif [ -z \"$tp\" ] || [ ! -f \"$tp\" ]; then exit 0; fi\nhas_fix=$(grep -ciE 'fix|bug|error|crash|broken|patch' \"$tp\" 2>/dev/null || true)\nhas_edit=$(grep -cE '\"type\":\"tool_use\"[^}]*\"name\":\"(Edit|Write)\"' \"$tp\" 2>/dev/null || true)\nif [ \"$has_fix\" -lt 2 ] || [ \"$has_edit\" -lt 1 ]; then exit 0; fi\nhas_rootcause=$(grep -ciE 'root.?cause|impact.?scan|same.?pattern|grep -r|grep -rn|codebase.*scan|other.?place|regression|guard|permanent fix' \"$tp\" 2>/dev/null || true)\nif [ \"$has_rootcause\" -lt 1 ]; then\n  emit_block \"BAND-AID GUARD: Bug fix detected but no root cause analysis trace found. Find the root cause, scan codebase for same pattern (grep -r), add permanent guard. Band-aid fixes are FORBIDDEN.\"\nfi"
-          },
-          {
-            "type": "command",
-            "command": "# SSOT_STOP_CLEANUP_DYNAMIC - session-scoped artifact diff, no static patterns.\n# Baseline captured at UserPromptSubmit; this diffs current state. Files/dirs/procs\n# that this session created and did not clean up -> BLOCK with exact cleanup cmds.\nBASEDIR=$(cd \"$(dirname \"$0\")/../..\" 2>/dev/null && pwd || echo \"$PWD\")\nsource \"$BASEDIR/scripts/hook-helper.sh\"\nhook_stdin\ncheck_hook_active\nSID=$(echo \"$HOOK_STDIN\" | jq -r '.session_id // \"default\"' 2>/dev/null)\nviolations=$(\"$BASEDIR/scripts/cleanup-tracker.sh\" audit \"$SID\" 2>/dev/null || true)\nif [ -n \"$violations\" ]; then\n  detail=$(echo \"$violations\" | awk -F\"|\" '{\n    if ($1==\"FILE\") printf \"  rm -f %s\\n\", $2;\n    else if ($1==\"DIR\") printf \"  rm -rf %s\\n\", $2;\n    else if ($1==\"PROC\") printf \"  kill %s    # %s\\n\", $2, $3;\n  }')\n  emit_block \"RULE 021 CLEANUP BLOCK - this session created artifacts that were never cleaned up. Run these commands, verify they succeed, then retry:\\n\\n$detail\"\nfi"
-          },
-          {
-            "type": "command",
-            "command": "# SSOT_STOP_AUDIT_PERF - English performance claim + hedge audit\n# Blocks responses that claim speed/quality/behavior deltas or hedge\n# (\"i think\", \"probably\") without evidence (file:line, grep, benchmark,\n# test result). Complements AUDIT_005 (code-deletion claims) and BANDAID\n# (root-cause discipline).\nBASEDIR=$(cd \"$(dirname \"$0\")/../..\" 2>/dev/null && pwd || echo \"$PWD\")\nsource \"$BASEDIR/scripts/hook-helper.sh\"\nhook_stdin\ncheck_hook_active\nmsg=$(get_last_message)\nif [ -z \"$msg\" ]; then exit 0; fi\nhas_claim=$(echo \"$msg\" | grep -ciE \"will (increase|decrease|improve|speed up|slow down|be (faster|slower|better|worse))|should be (faster|slower|better|worse|improved)|would be (faster|slower|better|worse)|significantly (more|less|better|faster|slower)|(modest|noticeable|considerable|observed) (improvement|gain|gains|increase)|seemingly (faster|better|slower)|apparently (faster|better|slower)|[0-9]+x (faster|slower|better)|(probably|presumably|likely|i think|i believe|i guess)|\\boptimizes\\b\" || true)\nhas_evidence=$(echo \"$msg\" | grep -cE \"\\.[a-z]{1,4}:[0-9]+|grep.*src/|PASS|\\bOK\\b|SUCCESS|verified|confirmed|curl.*→.*200|took [0-9]|[0-9]+ms|benchmark|measured|md5sum|runtime\" || true)\nif [ \"$has_claim\" -gt 0 ] && [ \"$has_evidence\" -eq 0 ]; then\n  emit_block \"AUDIT_PERF: Response contains unverified performance/hedge claims (will speed up, modest improvement, probably, i think, etc.). Back every claim with evidence (file:line, grep output, benchmark numbers, test result). Paraphrase counts too.\"\nfi"
-          },
-          {
-            "type": "command",
-            "command": "# SSOT_RULE_012 - edit verify audit (Stop gate)\nBASEDIR=$(cd \"$(dirname \"$0\")/../..\" 2>/dev/null && pwd || echo \"$PWD\")\nsource \"$BASEDIR/scripts/hook-helper.sh\"\nhook_stdin\ncheck_hook_active\nSID=$(echo \"$HOOK_STDIN\" | jq -r '.session_id // \"default\"' 2>/dev/null)\nout=$(\"$BASEDIR/scripts/edit-verify-tracker.sh\" audit \"$SID\" 2>/dev/null)\nec=$?\nif [ \"$ec\" -eq 1 ] && [ -n \"$out\" ]; then\n  emit_block \"$out\"\nfi"
-          },
-          {
-            "type": "command",
-            "command": "# SSOT_RULE_024_001 - dynamic claim vs tool-trace audit\nBASEDIR=$(cd \"$(dirname \"$0\")/../..\" 2>/dev/null && pwd || echo \"$PWD\")\nsource \"$BASEDIR/scripts/hook-helper.sh\"\nhook_stdin\ncheck_hook_active\ntp=\"$_HOOK_TRANSCRIPT_PATH\"\nif [ -z \"$tp\" ] || [ ! -f \"$tp\" ]; then exit 0; fi\nout=$(python3 \"$BASEDIR/scripts/claim-verify.py\" \"$tp\" 2>/dev/null)\nec=$?\nif [ \"$ec\" -eq 1 ] && [ -n \"$out\" ]; then\n  emit_block \"$out\"\nfi"
           }
         ]
       }
