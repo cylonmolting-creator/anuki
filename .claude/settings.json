@@ -51,7 +51,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "input=$(cat); fp=$(echo \"$input\" | jq -r \".tool_response.filePath // .tool_input.file_path // empty\"); ns=$(echo \"$input\" | jq -r \".tool_input.new_string // empty\"); if [ -z \"$fp\" ] || [ -z \"$ns\" ]; then exit 0; fi; if [ ! -f \"$fp\" ]; then jq -nc --arg f \"$fp\" '{hookSpecificOutput:{hookEventName:\"PostToolUse\",additionalContext:(\"WARNING: File does not exist on disk! \" + $f)}}'; exit 0; fi; sample=$(echo \"$ns\" | head -1 | sed 's/[^a-zA-Z0-9_ ]//g' | head -c 40); if [ -n \"$sample\" ] && ! grep -qF \"$sample\" \"$fp\" 2>/dev/null; then jq -nc --arg f \"$fp\" --arg s \"$sample\" '{hookSpecificOutput:{hookEventName:\"PostToolUse\",additionalContext:(\"WARNING: Edit may not have applied. Expected text not found in \" + $f + \": \" + $s)}}'; fi"
+            "command": "# SSOT_RULE_012 - edit verify tracker (record phase)\nBASEDIR=$(cd \"$(dirname \"$0\")/../..\" 2>/dev/null && pwd || echo \"$PWD\")\nSID=$(jq -r '.session_id // \"default\"' 2>/dev/null)\ncat | \"$BASEDIR/scripts/edit-verify-tracker.sh\" record \"$SID\" 2>/dev/null || true"
           }
         ]
       },
@@ -101,6 +101,10 @@
           {
             "type": "command",
             "command": "# SSOT_RULE_DYNAMIC - hardcoded count detection (v4, word-boundary-exact)\n# Blocks === comparisons to fixed numbers (2+) on semantic count fields and\n# any .length === 8-12. Excludes === 0/1 (legit empty/singleton checks).\n# v4: count|total|num matched word-exact so 'countdown', 'totalSeconds',\n# 'numPages' don't false-positive.\ninput=$(cat)\nns=$(echo \"$input\" | jq -r '.tool_input.new_string // .tool_input.content // empty')\nif echo \"$ns\" | grep -qE '(agents|workspaces|channels|runningJobs|activeAgents|numAgents|agentCount|workspaceCount|totalAgents)\\.length\\s*===\\s*([2-9]|[0-9]{2,})\\b|\\b(count|total|num|agentCount|workspaceCount|totalAgents|numAgents)\\b\\s*===\\s*([2-9]|[0-9]{2,})\\b|\\.length\\s*===\\s*(8|9|10|11|12)\\s*[];,)]'; then\n  echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"DYNAMIC-FIRST BLOCK: Hardcoded count detected (=== fixed number on agents/workspaces/count field or .length === 8-12). Query dynamically from API - never hardcode counts. Rule 005.\"}}'\nfi"
+          },
+          {
+            "type": "command",
+            "command": "# SSOT_RULE_011 - soul vs runtime separation guard (WARN)\ninput=$(cat)\nfp=$(echo \"$input\" | jq -r '.tool_input.file_path // empty')\nif [ -z \"$fp\" ]; then exit 0; fi\nif ! echo \"$fp\" | grep -qE 'workspace/[^/]+/soul/[^/]+\\.md$'; then exit 0; fi\ntp=$(echo \"$input\" | jq -r '.transcript_path // empty')\nif [ -z \"$tp\" ] || [ ! -f \"$tp\" ]; then exit 0; fi\nerr_hits=$(tail -n 100 \"$tp\" 2>/dev/null | grep -ciE 'TypeError|ReferenceError|stack trace|at [A-Za-z_$][A-Za-z0-9_$]*\\.<?anonymous|executor\\.js:[0-9]+|\\bcrash\\b|uncaughtException|EADDRINUSE|ENOENT' || true)\nif [ \"$err_hits\" -ge 2 ]; then\n  jq -nc --arg f \"$fp\" '{hookSpecificOutput:{hookEventName:\"PreToolUse\",additionalContext:(\"RULE 011 NOTE: Editing soul file \" + $f + \" while recent transcript shows runtime error signatures. Soul files are PROMPTS, not runtime code. A ReferenceError / TypeError / crash is fixed in src/, NOT by adding a behavioral rule to the soul. Confirm this is a prompt-level change, not a band-aid for a runtime bug.\")}}'\nfi"
           }
         ]
       }
@@ -123,6 +127,14 @@
           {
             "type": "command",
             "command": "# SSOT_STOP_AUDIT_PERF - English performance claim + hedge audit\n# Blocks responses that claim speed/quality/behavior deltas or hedge\n# (\"i think\", \"probably\") without evidence (file:line, grep, benchmark,\n# test result). Complements AUDIT_005 (code-deletion claims) and BANDAID\n# (root-cause discipline).\nBASEDIR=$(cd \"$(dirname \"$0\")/../..\" 2>/dev/null && pwd || echo \"$PWD\")\nsource \"$BASEDIR/scripts/hook-helper.sh\"\nhook_stdin\ncheck_hook_active\nmsg=$(get_last_message)\nif [ -z \"$msg\" ]; then exit 0; fi\nhas_claim=$(echo \"$msg\" | grep -ciE \"will (increase|decrease|improve|speed up|slow down|be (faster|slower|better|worse))|should be (faster|slower|better|worse|improved)|would be (faster|slower|better|worse)|significantly (more|less|better|faster|slower)|(modest|noticeable|considerable|observed) (improvement|gain|gains|increase)|seemingly (faster|better|slower)|apparently (faster|better|slower)|[0-9]+x (faster|slower|better)|(probably|presumably|likely|i think|i believe|i guess)|\\boptimizes\\b\" || true)\nhas_evidence=$(echo \"$msg\" | grep -cE \"\\.[a-z]{1,4}:[0-9]+|grep.*src/|PASS|\\bOK\\b|SUCCESS|verified|confirmed|curl.*→.*200|took [0-9]|[0-9]+ms|benchmark|measured|md5sum|runtime\" || true)\nif [ \"$has_claim\" -gt 0 ] && [ \"$has_evidence\" -eq 0 ]; then\n  emit_block \"AUDIT_PERF: Response contains unverified performance/hedge claims (will speed up, modest improvement, probably, i think, etc.). Back every claim with evidence (file:line, grep output, benchmark numbers, test result). Paraphrase counts too.\"\nfi"
+          },
+          {
+            "type": "command",
+            "command": "# SSOT_RULE_012 - edit verify audit (Stop gate)\nBASEDIR=$(cd \"$(dirname \"$0\")/../..\" 2>/dev/null && pwd || echo \"$PWD\")\nsource \"$BASEDIR/scripts/hook-helper.sh\"\nhook_stdin\ncheck_hook_active\nSID=$(echo \"$HOOK_STDIN\" | jq -r '.session_id // \"default\"' 2>/dev/null)\nout=$(\"$BASEDIR/scripts/edit-verify-tracker.sh\" audit \"$SID\" 2>/dev/null)\nec=$?\nif [ \"$ec\" -eq 1 ] && [ -n \"$out\" ]; then\n  emit_block \"$out\"\nfi"
+          },
+          {
+            "type": "command",
+            "command": "# SSOT_RULE_024_001 - dynamic claim vs tool-trace audit\nBASEDIR=$(cd \"$(dirname \"$0\")/../..\" 2>/dev/null && pwd || echo \"$PWD\")\nsource \"$BASEDIR/scripts/hook-helper.sh\"\nhook_stdin\ncheck_hook_active\ntp=\"$_HOOK_TRANSCRIPT_PATH\"\nif [ -z \"$tp\" ] || [ ! -f \"$tp\" ]; then exit 0; fi\nout=$(python3 \"$BASEDIR/scripts/claim-verify.py\" \"$tp\" 2>/dev/null)\nec=$?\nif [ \"$ec\" -eq 1 ] && [ -n \"$out\" ]; then\n  emit_block \"$out\"\nfi"
           }
         ]
       }
