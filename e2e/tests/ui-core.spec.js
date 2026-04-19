@@ -390,39 +390,46 @@ test.describe('Message Formatting (XSS & Markdown)', () => {
 
   test('code blocks render correctly', async ({ page }) => {
     await page.goto('/');
-    await page.evaluate(() => {
-      window.addMessage('assistant', '```js\nconsole.log("hello");\n```');
-    });
-    // Scope to the LAST assistant message so previous tests' markdown
-    // (e.g. the XSS test's <strong>bold</strong>) doesn't trigger
-    // Playwright's strict-mode multi-match violation.
-    const lastMsg = page.locator('.message.assistant').last();
-    const codeBlock = lastMsg.locator('pre code');
+    // Use a unique sentinel in the payload so the test can scope its
+    // assertions to exactly the message it just injected, independent of
+    // any messages left from earlier tests in the same describe block
+    // (Playwright reuses the browser context; earlier addMessage calls
+    // leave <strong>/<code> elements that would trigger strict-mode
+    // multi-match violations on a bare `.message.assistant strong`).
+    const sentinel = 'sentinel-code-' + Date.now();
+    await page.evaluate((s) => {
+      window.addMessage('assistant', '```js\nconsole.log("' + s + '");\n```');
+    }, sentinel);
+    const scoped = page.locator('.message.assistant', { hasText: sentinel });
+    await expect(scoped).toBeVisible();
+    const codeBlock = scoped.locator('pre code');
     await expect(codeBlock).toBeVisible();
     const text = await codeBlock.textContent();
-    expect(text).toContain('console.log');
+    expect(text).toContain(sentinel);
   });
 
   test('inline code renders correctly', async ({ page }) => {
     await page.goto('/');
-    await page.evaluate(() => {
-      window.addMessage('assistant', 'Use the `npm install` command');
-    });
-    const lastMsg = page.locator('.message.assistant').last();
-    const inlineCode = lastMsg.locator('code');
+    const sentinel = 'sentinel-inline-' + Date.now();
+    await page.evaluate((s) => {
+      window.addMessage('assistant', 'marker ' + s + ' with `npm install` inside');
+    }, sentinel);
+    const scoped = page.locator('.message.assistant', { hasText: sentinel });
+    await expect(scoped).toBeVisible();
+    const inlineCode = scoped.locator('code');
     await expect(inlineCode).toBeVisible();
     await expect(inlineCode).toHaveText('npm install');
   });
 
   test('bold text renders correctly', async ({ page }) => {
     await page.goto('/');
-    await page.evaluate(() => {
-      window.addMessage('assistant', 'This is **important** text');
-    });
-    // Scope to the LAST assistant message to avoid strict-mode violation
-    // when earlier tests (e.g. XSS) have added their own <strong> elements.
-    const lastMsg = page.locator('.message.assistant').last();
-    const bold = lastMsg.locator('strong');
+    const sentinel = 'sentinel-bold-' + Date.now();
+    await page.evaluate((s) => {
+      window.addMessage('assistant', s + ': This is **important** text');
+    }, sentinel);
+    const scoped = page.locator('.message.assistant', { hasText: sentinel });
+    await expect(scoped).toBeVisible();
+    const bold = scoped.locator('strong');
     await expect(bold).toBeVisible();
     await expect(bold).toHaveText('important');
   });
