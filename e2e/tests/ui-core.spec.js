@@ -184,8 +184,8 @@ test.describe('Settings Modal', () => {
     await page.goto('/');
     await page.locator('.settings-btn').click();
     await expect(page.locator('#apiKey')).toBeVisible();
-    await expect(page.locator('#defaultModel')).toBeVisible();
-    await expect(page.locator('#claudePath')).toBeVisible();
+    // Model and Claude Path fields removed — configured via config.json
+    await expect(page.locator('text=config.json')).toBeVisible();
   });
 
   test('settings modal has save and cancel buttons', async ({ page }) => {
@@ -226,17 +226,11 @@ test.describe('Settings Modal', () => {
     expect(storedKey).toBe('test-key-12345');
   });
 
-  test('model dropdown has valid options', async ({ page }) => {
+  test('settings modal shows config.json reference', async ({ page }) => {
     await page.goto('/');
     await page.locator('.settings-btn').click();
-    const options = page.locator('#defaultModel option');
-    const count = await options.count();
-    expect(count).toBeGreaterThanOrEqual(1);
-    // Each option should have a value
-    for (let i = 0; i < count; i++) {
-      const val = await options.nth(i).getAttribute('value');
-      expect(val).toBeTruthy();
-    }
+    // Model/provider settings are in config.json, not the UI
+    await expect(page.locator('text=config.json')).toBeVisible();
   });
 });
 
