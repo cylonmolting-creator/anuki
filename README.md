@@ -120,7 +120,7 @@ LLM_PROVIDER=claude
    ```
 5. Start Anuki: `npm start`
 
-Claude is the only provider with full agentic capabilities — tool use, file editing, multi-turn reasoning, and session resume. If unsure, start here.
+All providers support tool use, but Claude adds session resume across restarts and native file editing via Claude Code CLI. If unsure, start here.
 </details>
 
 <details>
