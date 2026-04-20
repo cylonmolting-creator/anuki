@@ -32,6 +32,8 @@ Most multi-agent frameworks require you to define agents in code. Anuki takes a 
 | Multi-LLM provider support | Yes | Yes | Yes | Yes | Yes |
 | Zero-dependency frontend | Yes | No | No | No | No |
 
+For a deeper feature-by-feature analysis, see [FEATURES.md](FEATURES.md).
+
 > Most AI agent frameworks focus on the AI part — prompting, memory, tool use. Anuki also brings **production infrastructure** to the agent world: patterns borrowed from microservices (circuit breakers), message queues (pending completions), and operations engineering (health watchdog, orphan cleanup, graceful shutdown). These aren't AI innovations — they're battle-tested engineering patterns applied to agents for the first time.
 
 ### Built for people who are new to AI agents
@@ -154,7 +156,15 @@ OpenAI agents have full tool use — file reading, writing, editing, grep, bash 
 Ollama runs entirely on your machine — no API key, no cloud, no cost. Tool-capable models (Llama 3.1+, Mistral, Qwen 2.5, DeepSeek-v3, Command-R) get full agentic mode with tool use. Other models run in chat-only mode.
 </details>
 
-**`config.json`** — Advanced settings: model selection, provider config, security limits, memory decay, logging.
+**`config.json`** — Advanced settings (most users won't need to touch this):
+
+| Section | Key fields | What it controls |
+|---------|-----------|-----------------|
+| `port` | `3000` | HTTP server port |
+| `agent` | `provider`, `model`, `providers.*` | Default LLM, model name, per-provider config |
+| `memory` | `decayRate`, `reflectionHour` | Memory decay speed (0.05 = 5%/day), reflection schedule |
+| `security.rateLimit` | `interAgent`, `websocket` | Rate limits for agent messaging and WebSocket clients |
+| `logging` | `level`, `maxSize`, `maxFiles` | Log verbosity, rotation size/count |
 
 ---
 
@@ -173,6 +183,7 @@ Every agent has a set of markdown files that define its complete persona:
 | `SAFETY.md` | Security rules (auto-generated from SSOT) |
 | `CODE_PROTOCOL.md` | Code writing standards (for developer agents) |
 | `PROMPT_PROFILE.md` | Model-specific hints and task routing triggers |
+| `first_prompt.txt` | Initial instructions sent on first interaction (optional) |
 
 Soul files are injected into the agent's system prompt at runtime. They persist across sessions — agents maintain consistent identity over time.
 

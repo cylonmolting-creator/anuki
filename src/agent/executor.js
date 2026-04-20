@@ -2906,7 +2906,15 @@ class AgentExecutor {
           return;
         }
 
-        // Non-retryable or retries exhausted
+        // Non-retryable or retries exhausted — make error user-friendly
+        if (error.code === 'ENOENT' || (error.message && error.message.includes('ENOENT'))) {
+          const providerName = this.provider ? this.provider.name : 'LLM provider';
+          error = new Error(
+            `${providerName} CLI not found. Install it first:\n` +
+            '• Claude: https://docs.anthropic.com/en/docs/claude-cli\n' +
+            '• Or switch provider in .env (LLM_PROVIDER=openai or ollama)'
+          );
+        }
         // Store very low confidence for spawn error case
         confidenceScores.set(conversationId, {
           contextRelevance: 0.5,

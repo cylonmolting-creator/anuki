@@ -70,7 +70,7 @@ class Security {
     }
 
     this.log('Security module initialized');
-    this.log(`API Token: ${this.apiToken.substring(0, 8)}...`);
+    this.log('API Token: configured (see .security/api.token)');
     this.log(`Allowed origins: ${this.allowedOrigins.size}`);
   }
 
