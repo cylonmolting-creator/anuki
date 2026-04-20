@@ -5,7 +5,7 @@
  * Dynamic: no hardcoded IDs or counts. Agent/workspace lists fetched at runtime.
  * Safe: DELETE/PUT tests use fake/nonexistent IDs only.
  *
- * Run: cd ~/Desktop/anuki && node test/api-routes.test.js
+ * Run: node test/api-routes.test.js
  */
 
 const http = require('http');

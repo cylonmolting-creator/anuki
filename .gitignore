@@ -23,3 +23,7 @@ workspace/*/memory/
 .claude/settings.local.json
 .security/
 test-results/
+
+# Internal planning docs (not for public repo)
+SHILL-PLAN.md
+LAUNCH.md

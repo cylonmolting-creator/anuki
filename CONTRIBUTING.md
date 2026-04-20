@@ -12,7 +12,7 @@ Thank you for your interest in contributing to Anuki! This document provides gui
 ## Prerequisites
 
 - Node.js >= 18.0.0
-- [Claude Code CLI](https://claude.ai/code) installed and authenticated
+- [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-cli) installed and authenticated (or OpenAI/Ollama configured in `.env`)
 
 ## Project Structure
 
@@ -61,7 +61,7 @@ If you're adding or modifying rules:
 2. Run `node scripts/build-rules.js` to compile rules into hooks
 3. Verify the generated `.claude/settings.json` is valid
 
-See [README.md](README.md#ssot-rule-enforcement) for rule format details.
+See [README.md](README.md#ssot-rule-system--mechanical-governance) for rule format details.
 
 ## Soul Files
 

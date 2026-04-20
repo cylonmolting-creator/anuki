@@ -23,4 +23,4 @@ What you expected to happen.
 - Anuki version: [e.g., v0.1.0 or commit hash]
 
 **Logs**
-Paste relevant output from `logs/app.log` or terminal (remove any API keys).
+Paste relevant output from `logs/master.log` or terminal (remove any API keys).

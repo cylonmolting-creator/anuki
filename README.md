@@ -326,8 +326,6 @@ Most agent frameworks assume a managed environment. Anuki runs as a persistent s
 
 **WebSocket Resume Buffer** — If a client disconnects during streaming, output is buffered. When the client reconnects, the buffered response is replayed. No gaps in conversation.
 
-**Built-in Backup** — API endpoint creates timestamped backups of the entire system state. Automatic rotation prevents disk bloat. Boot-time backup ensures you always have a clean restore point.
-
 ---
 
 ## Creating Agents
@@ -391,7 +389,7 @@ anuki/
 └── data/                      # Runtime state (agents, jobs, conversations)
 ```
 
-**By the numbers**: 55 source files, ~24K lines of JavaScript, 7 dependencies.
+**By the numbers**: 58 source files, ~26K lines of JavaScript, 7 dependencies.
 
 ### Boot Sequence
 
@@ -407,17 +405,16 @@ anuki/
 GET  /api/health                  # System health (no auth required)
 GET  /api/agents                  # List all agents
 POST /api/agents                  # Create agent
-POST /api/agents/:id/message      # Send message to agent
+POST /api/agents/:id/message      # Inter-agent message (body: {from, message})
 GET  /api/workspaces              # List workspaces
 GET  /api/workspaces/:id/soul     # Read agent's soul files
 PUT  /api/workspaces/:id/soul/:f  # Update a soul file
 GET  /api/active-jobs             # Running agent jobs
 POST /api/safe-restart            # Request graceful restart (queued if agents are busy)
 GET  /api/safe-restart/status     # Check whether a queued restart has already fired
-POST /api/backup/create           # Create backup
 ```
 
-Full API: 50+ REST endpoints covering agents, workspaces, conversations, memory, cron, backup, and inter-agent messaging.
+Full API: 100+ REST endpoints covering agents, workspaces, conversations, memory, cron, skills, and inter-agent messaging.
 
 ---
 
@@ -544,7 +541,7 @@ Anuki includes 14 layers of session bloat prevention — keeping conversations l
 | Frontend | Vanilla JS (single HTML file, zero framework) |
 | Database | None — JSON + Markdown files |
 | Scheduling | node-cron |
-| IDs | ULID + UUID |
+| IDs | UUID |
 
 **Zero database dependency.** Everything is files — JSON for state, Markdown for identity. Easy to inspect, version control, and backup.
 

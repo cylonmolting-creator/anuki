@@ -1,14 +1,15 @@
 #!/usr/bin/env node
 
-// Load .env file — override: true ensures .env wins over inherited parent env vars
+// Load .env file — shell env takes precedence over .env (standard Node.js convention)
 const _path = require('path');
 const _fs = require('fs');
 const _envPath = _path.join(__dirname, '..', '.env');
 const _examplePath = _path.join(__dirname, '..', '.env.example');
 if (!_fs.existsSync(_envPath) && _fs.existsSync(_examplePath)) {
   _fs.copyFileSync(_examplePath, _envPath);
+  console.log('📋 No .env found — auto-created from .env.example. Edit .env to configure your LLM provider.');
 }
-require('dotenv').config({ path: _envPath, override: true });
+require('dotenv').config({ path: _envPath });
 
 const http = require('http');
 const path = require('path');

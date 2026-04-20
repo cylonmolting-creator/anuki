@@ -4,14 +4,14 @@ const fs = require('fs');
 const path = require('path');
 const EventEmitter = require('events');
 
-// Load .env first — override: true ensures .env wins over inherited parent env vars
-// (prevents inherited PORT from parent process overriding .env value)
+// Load .env — shell env takes precedence over .env (standard Node.js convention)
+// Use ANUKI_TEST_PORT or PORT env var to override the port in .env
 const envPath = path.join(__dirname, '../../.env');
 const examplePath = path.join(__dirname, '../../.env.example');
 if (!fs.existsSync(envPath) && fs.existsSync(examplePath)) {
   fs.copyFileSync(examplePath, envPath);
 }
-require('dotenv').config({ path: envPath, override: true });
+require('dotenv').config({ path: envPath });
 
 const CONFIG_FILE = path.join(__dirname, '../../config.json');
 

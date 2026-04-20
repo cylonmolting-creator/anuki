@@ -130,6 +130,11 @@ class HTTPServer {
     this._startTime = Date.now(); // Boot timestamp for health dashboard
     this._setupRoutes();
     this._setupTracingRoutes(); // Roadmap 10.1: Request tracing endpoints
+
+    // Catch-all 404 for unknown /api/* routes — return JSON, not Express HTML
+    this.app.use('/api', (req, res) => {
+      res.status(404).json({ error: 'Not found', path: req.path });
+    });
   }
 
   setSecurity(sec) {
