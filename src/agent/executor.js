@@ -2410,6 +2410,20 @@ class AgentExecutor {
             this._saveSessions();
           }
 
+          // FIX-A+B: Fallback chain for cancelled response.
+          if (!fullResponse.trim()) {
+            const activeJob = this._activeJobs.get(conversationId);
+            if (activeJob && activeJob.lastResponse && activeJob.lastResponse.trim()) {
+              fullResponse = activeJob.lastResponse;
+              this.logger.info('AgentExecutor', 'Cancelled recovery: restored from activeJob.lastResponse (' + fullResponse.length + ' chars)');
+            } else if (capturedSessionId) {
+              const fromJsonl = this._readLastAssistantFromClaudeSession(capturedSessionId);
+              if (fromJsonl) {
+                fullResponse = fromJsonl;
+                this.logger.info('AgentExecutor', 'Cancelled recovery: restored from Claude CLI jsonl (' + fromJsonl.length + ' chars)');
+              }
+            }
+          }
           // If we have partial response, deliver it
           if (fullResponse.trim()) {
             const tagResult = await this._processToolTags(fullResponse, channel, userId, workspaceId, delegationContext, conversationId);
@@ -3966,6 +3980,47 @@ ALWAYS save user preferences, decisions, and important information.`);
 
   abortProcess(conversationId) {
     return this.abort(conversationId, { cancelledByUser: false });
+  }
+
+  /**
+   * FIX-A: Recover last assistant message from Claude CLI session jsonl.
+   * When executor is cancelled with empty fullResponse, the full conversation
+   * is preserved in ~/.claude/projects/<proj>/<sessionId>.jsonl.
+   */
+  _readLastAssistantFromClaudeSession(sessionId) {
+    if (!sessionId) return null;
+    try {
+      const projectsDir = path.join(require('os').homedir(), '.claude', 'projects');
+      if (!fs.existsSync(projectsDir)) return null;
+      const projects = fs.readdirSync(projectsDir);
+      for (const proj of projects) {
+        const jsonlPath = path.join(projectsDir, proj, sessionId + '.jsonl');
+        if (!fs.existsSync(jsonlPath)) continue;
+        const raw = fs.readFileSync(jsonlPath, 'utf8').trim();
+        if (!raw) continue;
+        const lines = raw.split('\n');
+        for (let i = lines.length - 1; i >= 0; i--) {
+          try {
+            const entry = JSON.parse(lines[i]);
+            if (entry.type === 'assistant' && entry.message && entry.message.content) {
+              const blocks = Array.isArray(entry.message.content) ? entry.message.content : [entry.message.content];
+              const texts = blocks
+                .filter(b => (typeof b === 'string') || b.type === 'text')
+                .map(b => typeof b === 'string' ? b : b.text)
+                .filter(Boolean);
+              if (texts.length > 0) {
+                const joined = texts.join('\n\n').trim();
+                if (joined) return joined;
+              }
+            }
+          } catch {}
+        }
+        return null;
+      }
+    } catch (e) {
+      this.logger && this.logger.warn && this.logger.warn('AgentExecutor', 'jsonl recovery failed: ' + e.message);
+    }
+    return null;
   }
 
   hasPendingMessages(conversationId) {
