@@ -7,7 +7,7 @@
       "event": "PreToolUse",
       "matcher": "Bash",
       "when": {
-        "command_regex": "curl.*-X\\s+(DELETE|PUT)|rm\\s+-[fF]*[rR]",
+        "command_regex": "curl.*(-X\\s*|--request\\s+)(DELETE|PUT)|rm\\s+-[fF]*[rR]|requests\\.(delete|put)\\s*\\(|fetch\\(.*method:\\s*['\"]DELETE|http\\.(delete|put)\\s*\\(",
         "command_not_regex": "/tmp/|/var/folders/"
       },
       "then": {
@@ -34,7 +34,7 @@
       "event": "PreToolUse",
       "matcher": "Edit|Write",
       "when": {
-        "content_regex": "(agents|workspaces|channels|runningJobs|activeAgents|numAgents|agentCount|workspaceCount|totalAgents)\\.length\\s*===\\s*([2-9]|[0-9]{2,})\\b|\\b(count|total|num|agentCount|workspaceCount|totalAgents|numAgents)\\b\\s*===\\s*([2-9]|[0-9]{2,})\\b|\\.length\\s*===\\s*(8|9|10|11|12)\\s*[];,)]"
+        "content_regex": "(agents|workspaces|channels|runningJobs|activeAgents|numAgents|agentCount|workspaceCount|totalAgents)\\.length\\s*(={2,3})\\s*([2-9]|[0-9]{2,})\\b|\\b(count|total|num|agentCount|workspaceCount|totalAgents|numAgents)\\b\\s*(={2,3})\\s*([2-9]|[0-9]{2,})\\b|\\.length\\s*(={2,3})\\s*(8|9|10|11|12)\\s*[;,\\])]|toHaveLength\\s*\\(\\s*([2-9]|[0-9]{2,})\\s*\\)|assert\\.(equal|strictEqual|deepEqual)\\s*\\(\\s*(count|total|num|agents|workspaces|agentCount|workspaceCount)[^,]*,\\s*([2-9]|[0-9]{2,})\\s*\\)|\\b(AGENT_COUNT|WORKSPACE_COUNT|NUM_AGENTS|TOTAL_AGENTS)\\s*=\\s*([2-9]|[0-9]{2,})\\b"
       },
       "then": {
         "action": "deny",
@@ -54,6 +54,13 @@
       "event": "PreToolUse",
       "matcher": "Edit|Write",
       "plugin": "enforce-plugin-read-before-edit.sh"
+    },
+    {
+      "id": "025",
+      "name": "push-runtime-verified",
+      "event": "PreToolUse",
+      "matcher": "Bash",
+      "plugin": "enforce-plugin-push-runtime.sh"
     },
     {
       "id": "011",

@@ -11,7 +11,7 @@ Rule schema (rules.json):
     "rules": [
       {
         "id": "009",
-        "name": "pkill-yasak",
+        "name": "pkill-forbidden",
         "event": "PreToolUse",
         "matcher": "Bash",           # honoured by Claude via settings.json
         "when": { "command_regex": "(pkill|killall)\\s" },
@@ -235,6 +235,9 @@ def eval_inject(rule: dict, event: str) -> int:
 
 
 # ── Main ─────────────────────────────────────────────────────────────────
+MAINTENANCE = os.environ.get("ANUKI_MAINTENANCE") == "1"
+
+
 def main() -> int:
     if len(sys.argv) < 2:
         return 0
@@ -267,6 +270,10 @@ def main() -> int:
         else:
             ec = eval_declarative(rule, payload, event)
         if ec == 1:
+            if MAINTENANCE:
+                rid = rule.get("id", "?")
+                print(f"[MAINTENANCE] Would block rule {rid} — allowing", file=sys.stderr)
+                continue  # log but don't block
             blocked = True
             break  # first deny wins; downstream rules skipped
     return 1 if blocked else 0

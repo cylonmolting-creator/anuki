@@ -9,10 +9,10 @@ tp=$(echo "$input" | jq -r '.transcript_path // empty')
 [ -z "$tp" ] || [ ! -f "$tp" ] && exit 0
 tail_file="/tmp/claude-025-tail-$$"
 tail -n 200 "$tp" 2>/dev/null > "$tail_file"
-runtime=$(grep -cE 'node\s+src/index\.js|node\s+-c|curl\s+[^"]*localhost|safe-restart|npm\s+(test|run\s+test)|npx\s+playwright|playwright\s+test|pytest|mocha' "$tail_file" 2>/dev/null || true)
+runtime=$(grep -cE 'node\s+src/index\.js|curl\s+[^"]*localhost|safe-restart|npm\s+(test|run\s+test)|npx\s+playwright|playwright\s+test|pytest|mocha' "$tail_file" 2>/dev/null || true)
 unlink "$tail_file" 2>/dev/null
 if [ "$runtime" -lt 1 ]; then
-  echo '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"RULE 025 BLOCK: git push without recent runtime verification. node src/index.js başlat, curl ile endpoint vur, veya test suite çalıştır. node -c syntax check yetmez."}}'
+  echo '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"RULE 025 BLOCK: git push without recent runtime verification. Start node src/index.js, hit endpoints with curl, or run test suite. node -c syntax check is NOT sufficient."}}'
   exit 1
 fi
 exit 0
