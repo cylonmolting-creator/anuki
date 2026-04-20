@@ -1,0 +1,14 @@
+services:
+  anuki:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/app/data
+      - ./workspace:/app/workspace
+      - ./rules:/app/rules
+      - ./memory:/app/memory
+      - ./logs:/app/logs
+    env_file:
+      - .env
+    restart: unless-stopped

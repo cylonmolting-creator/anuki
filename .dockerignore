@@ -1,0 +1,8 @@
+node_modules
+.git
+.env
+logs/*.log
+data/sessions.json
+data/active-jobs.json
+.DS_Store
+*.bak

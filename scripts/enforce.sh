@@ -3,7 +3,7 @@
 # All dispatch lives in enforce.py, reading rules.json.
 #
 # settings.json wire-up:
-#   { "type": "command", "command": "bash $HOME/.cylon/master/scripts/enforce.sh <event>" }
+#   { "type": "command", "command": "bash /path/to/anuki/scripts/enforce.sh <event>" }
 set -u
 EVENT="${1:-}"
 [ -z "$EVENT" ] && exit 0

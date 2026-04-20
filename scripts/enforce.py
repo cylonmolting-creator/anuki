@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Generic enforcement engine — data-driven hook runner.
 
-The single source of truth for CYLON's hook-level enforcement now
+The single source of truth for Anuki's hook-level enforcement now
 lives in `rules.json`. `.claude/settings.local.json` wires each hook
 event to a one-line wrapper that calls this engine; the engine reads
 the manifest and dispatches every rule applicable to that event.

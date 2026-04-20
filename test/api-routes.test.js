@@ -1,7 +1,7 @@
 /**
  * Anuki HTTP Routes — Comprehensive API Test Suite
  *
- * Inspired by CYLON's 185-test http-routes.test.js.
+ * Comprehensive API test suite with 77 tests.
  * Dynamic: no hardcoded IDs or counts. Agent/workspace lists fetched at runtime.
  * Safe: DELETE/PUT tests use fake/nonexistent IDs only.
  *
@@ -9,7 +9,7 @@
  */
 
 const http = require('http');
-// Anuki-specific: always 3000. Don't inherit from env (CYLON sets PORT=1940).
+// Always use port 3000 — Anuki's default. Don't inherit from env.
 const PORT = 3000;
 
 // Dynamic workspace + agent state — filled at runtime

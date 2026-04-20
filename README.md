@@ -1,5 +1,7 @@
 # Anuki
 
+[![CI](https://github.com/cylonmolting-creator/anuki/actions/workflows/ci.yml/badge.svg)](https://github.com/cylonmolting-creator/anuki/actions/workflows/ci.yml)
+
 **Open-source AI Agent LEGO Platform** — Build, manage, and orchestrate your own multi-agent team.
 
 Anuki gives you the building blocks. You build the team. Three core agents ship out of the box — use them to create unlimited specialized agents, enforce governance rules, and build a team that learns and remembers.
@@ -55,7 +57,7 @@ Anuki eliminates these failure modes at the system level — so you don't have t
 
 | Agent | Role | How It Works |
 |-------|------|-------------|
-| **PROTOS** | Navigator & Default | The first agent you talk to. Understands your intent, explains the platform, and auto-routes specialized requests to the right agent. |
+| **PROTOS** | Default Agent & Prompt Architect | The first agent you talk to. Handles general requests and helps you craft optimal prompts for specialized agents. Routing to ENKI/UTU happens automatically at the system level via auto-router. |
 | **ENKI** | Agent Creator | Tell ENKI what you need in plain language. It creates complete agents with soul files, memory, safety rules — everything. New agents appear in your sidebar immediately. |
 | **UTU** | Rule Guardian | The designated authority on governance. UTU creates and modifies rules in `rules/`. Rules propagate automatically to all affected agents via the SSOT system. |
 
@@ -70,8 +72,8 @@ Anuki eliminates these failure modes at the system level — so you don't have t
 | Provider | What you need | Best for |
 |----------|--------------|----------|
 | **[Claude Code CLI](https://docs.anthropic.com/en/docs/claude-cli)** (recommended) | `npm install -g @anthropic-ai/claude-code` + Anthropic API key | Full agentic mode — tool use, file editing, session resume |
-| **[OpenAI API](https://platform.openai.com)** | OpenAI API key | Chat completion with GPT-4o / GPT-4o-mini |
-| **[Ollama](https://ollama.ai)** | Ollama installed locally | Free local models (Llama, Mistral, Gemma, etc.) |
+| **[OpenAI API](https://platform.openai.com)** | OpenAI API key | Agentic mode with tool use (GPT-4o / GPT-4o-mini) |
+| **[Ollama](https://ollama.ai)** | Ollama installed locally | Free local models with tool use (Llama 3.1+, Mistral, Qwen, etc.) |
 
 ```bash
 git clone https://github.com/cylonmolting-creator/anuki.git
@@ -95,7 +97,7 @@ LLM_PROVIDER=claude
 # CLAUDE_PATH=claude
 # ANTHROPIC_API_KEY=sk-ant-...
 
-# OpenAI (chat mode)
+# OpenAI (agentic mode with tool use)
 # OPENAI_API_KEY=sk-...
 # OPENAI_MODEL=gpt-4o
 
@@ -122,7 +124,7 @@ Claude is the only provider with full agentic capabilities — tool use, file ed
 </details>
 
 <details>
-<summary><strong>OpenAI API</strong> (chat mode with GPT-4o)</summary>
+<summary><strong>OpenAI API</strong> (agentic mode with GPT-4o)</summary>
 
 1. Get an API key from [OpenAI Platform](https://platform.openai.com/api-keys)
 2. Edit `.env`:
@@ -133,14 +135,14 @@ Claude is the only provider with full agentic capabilities — tool use, file ed
    ```
 3. Start Anuki: `npm start`
 
-OpenAI provides chat completion — agents can respond but cannot use tools, edit files, or resume sessions.
+OpenAI agents have full tool use — file reading, writing, editing, grep, bash commands. Multi-turn agentic loop with 15-turn limit. Session resume is not supported (stateless). Also works with OpenAI-compatible endpoints (DeepSeek, Groq, Together AI) via `OPENAI_BASE_URL`.
 </details>
 
 <details>
 <summary><strong>Ollama</strong> (free, local, no API key needed)</summary>
 
 1. Install Ollama from [ollama.ai](https://ollama.ai)
-2. Pull a model: `ollama pull llama3.1` (or `mistral`, `gemma2`, etc.)
+2. Pull a model: `ollama pull llama3.1` (or `mistral`, `qwen2.5`, `deepseek-v3`, etc.)
 3. Start Ollama: `ollama serve`
 4. Edit `.env`:
    ```env
@@ -149,7 +151,7 @@ OpenAI provides chat completion — agents can respond but cannot use tools, edi
    ```
 5. Start Anuki: `npm start`
 
-Ollama runs entirely on your machine — no API key, no cloud, no cost. Agents can chat but cannot use tools or edit files.
+Ollama runs entirely on your machine — no API key, no cloud, no cost. Tool-capable models (Llama 3.1+, Mistral, Qwen 2.5, DeepSeek-v3, Command-R) get full agentic mode with tool use. Other models run in chat-only mode.
 </details>
 
 **`config.json`** — Advanced settings: model selection, provider config, security limits, memory decay, logging.
@@ -475,17 +477,14 @@ sudo journalctl -u anuki -f   # follow logs
 
 ### Docker
 
-```yaml
-# docker-compose.yml
-services:
-  anuki:
-    image: node:20-alpine
-    working_dir: /app
-    volumes: [".:/app"]
-    command: node src/index.js
-    restart: unless-stopped
-    ports: ["3000:3000"]
+A real `Dockerfile` and `docker-compose.yml` ship with the repo:
+
+```bash
+cp .env.example .env       # configure your provider
+docker compose up --build  # builds image + starts Anuki
 ```
+
+Data persists across restarts — `data/`, `workspace/`, `rules/`, `memory/`, and `logs/` are mounted as volumes.
 
 ### Verifying a restart fired
 
