@@ -21,7 +21,7 @@ Most multi-agent frameworks require you to define agents in code. Anuki takes a 
 | Feature | Anuki | CrewAI | LangGraph | AutoGen | Dify |
 |---------|-------|--------|-----------|---------|------|
 | Create agents via natural language | Yes (ENKI) | No | No | No | Partial |
-| Persistent agent identity (soul files) | 9 file types | No | No | No | No |
+| Persistent agent identity (soul files) | 7+ file types | No | No | No | No |
 | Cognitive memory (3 layers) | Yes | Partial | No | No | No |
 | Response-level claim verification | **Yes** | No | No | No | No |
 | Mechanical rule enforcement (SSOT) | Yes | No | No | No | No |
@@ -83,7 +83,7 @@ npm install
 npm start
 ```
 
-Open `http://localhost:3000` in your browser. PROTOS will greet you.
+Open `http://localhost:3000` in your browser. Start chatting with PROTOS — try "create a code review agent" or ask anything.
 
 ### Configuration
 
@@ -480,11 +480,13 @@ sudo journalctl -u anuki -f   # follow logs
 A real `Dockerfile` and `docker-compose.yml` ship with the repo:
 
 ```bash
-cp .env.example .env       # configure your provider
+cp .env.example .env       # configure your provider (see note below)
 docker compose up --build  # builds image + starts Anuki
 ```
 
 Data persists across restarts — `data/`, `workspace/`, `rules/`, `memory/`, and `logs/` are mounted as volumes.
+
+> **Note:** Claude Code CLI is not available inside Docker containers. Set `LLM_PROVIDER=openai` or `LLM_PROVIDER=ollama` in your `.env`. If using Ollama running on your host machine, set `OLLAMA_URL=http://host.docker.internal:11434` (macOS/Windows) or add `network_mode: host` to docker-compose.yml (Linux).
 
 ### Verifying a restart fired
 

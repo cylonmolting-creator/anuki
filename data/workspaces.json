@@ -10,7 +10,7 @@
       "port": null,
       "firstPrompt": null,
       "templateKey": null,
-      "cwdOverride": "/Users/cylon/Desktop/anuki/agents/protos"
+      "cwdOverride": null
     },
     {
       "id": "utu",

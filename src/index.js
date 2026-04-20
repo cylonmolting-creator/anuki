@@ -281,6 +281,16 @@ async function main() {
     agentExecutor.messageRouter = messageRouter;
     logger.success('System', 'Agent executor ready');
 
+    // Validate LLM provider at boot — catch misconfiguration early
+    if (agentExecutor.provider && typeof agentExecutor.provider.validate === 'function') {
+      const validation = agentExecutor.provider.validate();
+      if (!validation.valid) {
+        logger.warn('System', `⚠️  LLM provider "${agentExecutor.provider.name}" is not available: ${validation.error}`);
+        logger.warn('System', `⚠️  Agents will not be able to respond until a provider is configured.`);
+        logger.warn('System', `⚠️  Edit .env to set LLM_PROVIDER to: claude, openai, or ollama`);
+      }
+    }
+
     // Agent manager
     const agentManager = {
       getAgent: (id) => AgentManager.getAgent(id),
@@ -513,6 +523,15 @@ async function main() {
     fs.writeFileSync(PID_FILE, String(process.pid));
 
     // Start listening
+    server.on('error', (err) => {
+      if (err.code === 'EADDRINUSE') {
+        console.error(`\n❌ Port ${PORT} is already in use. Either stop the other process or set a different port:\n   PORT=3001 npm start\n`);
+        process.exit(1);
+      }
+      console.error('Server error:', err);
+      process.exit(1);
+    });
+
     server.listen(PORT, () => {
       logger.success('System', `🌐 Anuki is running on http://localhost:${PORT}`);
       logger.success('System', `📊 Agents: ${agentManager.listAgents().length}`);

@@ -22,7 +22,7 @@ const http = require('http');
 const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.ANUKI_TEST_PORT || 3099;
 const HEALTH_URL = `http://localhost:${PORT}/api/health`;
 const BOOT_TIMEOUT_MS = 15000;
 const POLL_INTERVAL_MS = 500;
@@ -88,7 +88,7 @@ async function main() {
   const child = spawn('node', ['src/index.js'], {
     cwd: ROOT,
     stdio: ['ignore', 'pipe', 'pipe'],
-    env: { ...process.env, PORT: String(PORT) },
+    env: { ...process.env, ANUKI_TEST_PORT: String(PORT) },
     detached: true, // own process group so we can kill descendants too
   });
 

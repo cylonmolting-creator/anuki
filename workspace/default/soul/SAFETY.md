@@ -2,7 +2,7 @@
 
 ## FULL ACCESS
 Your own workspace directory:
-- `/Users/cylon/Desktop/anuki/agents/protos` — READ/WRITE/DELETE
+- `your workspace directory` — READ/WRITE/DELETE
 
 ## FORBIDDEN
 System core files (read-only at most):
@@ -16,7 +16,7 @@ System core files (read-only at most):
 - Other workspace directories — NO WRITE
 
 ## ALLOWED
-- `/Users/cylon/Desktop/anuki/agents/protos` — full read/write
+- `your workspace directory` — full read/write
 - Your workspace: `workspace/default/` — full access
 - `/tmp/` — temporary files
 - Internet (curl, API, web)
