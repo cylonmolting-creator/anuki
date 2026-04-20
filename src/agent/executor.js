@@ -1933,6 +1933,7 @@ class AgentExecutor {
     // event, which the outer try-catch swallowed and mislabeled as
     // "Non-JSON output" in logs.
     let _zombieTimer = null;
+    let processClosed = false;
 
     const rl = readline.createInterface({ input: claudeProcess.stdout });
 
@@ -2318,7 +2319,6 @@ class AgentExecutor {
     return new Promise((resolve, reject) => {
       let exitCode = null;
       let rlClosed = false;
-      let processClosed = false;
       // _zombieTimer hoisted to outer scope (see BUG-A fix above) so the
       // rl.on('line') handler can schedule it and tryFinalize can clear it.
 
