@@ -13,7 +13,7 @@
  * Runs on its own setInterval (not cron) — if cron stalls, watchdog still fires.
  */
 
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 
 class HealthWatchdog {
   constructor(config = {}, logger) {
@@ -228,9 +228,10 @@ class HealthWatchdog {
     this.stats.lastOrphanSweepAt = new Date().toISOString();
 
     try {
-      const psOutput = execSync('ps -eo pid,ppid,pgid,args 2>/dev/null || true', {
+      const psOutput = execFileSync('ps', ['-eo', 'pid,ppid,pgid,args'], {
         encoding: 'utf8',
-        timeout: 5000
+        timeout: 5000,
+        stdio: ['pipe', 'pipe', 'pipe']
       });
 
       const currentPid = process.pid;
@@ -286,7 +287,7 @@ class HealthWatchdog {
       // If orphan pgid matches our own pgid, kill only the PID, not the group
       let ownPgid = null;
       try {
-        const pgidOut = execSync(`ps -o pgid= -p ${currentPid}`, { encoding: 'utf8' }).trim();
+        const pgidOut = execFileSync('ps', ['-o', 'pgid=', '-p', String(currentPid)], { encoding: 'utf8' }).trim();
         ownPgid = parseInt(pgidOut);
       } catch (_) { /* fallback: no pgid kill */ }
 
@@ -375,9 +376,10 @@ class HealthWatchdog {
       // Check 2: Is it a zombie process?
       if (isAlive) {
         try {
-          const state = execSync('ps -p ' + pid + ' -o state= 2>/dev/null || true', {
+          const state = execFileSync('ps', ['-p', String(pid), '-o', 'state='], {
             encoding: 'utf8',
-            timeout: 3000
+            timeout: 3000,
+            stdio: ['pipe', 'pipe', 'pipe']
           }).trim();
 
           if (state === 'Z') {

@@ -84,7 +84,11 @@ find "$BASEDIR/workspace" -type f \( -name "*.md" -o -name "*.txt" \) \
   -path "*/soul/*" 2>/dev/null \
   | sort \
   | while read -r f; do
-      md5 -q "$f" 2>/dev/null | awk -v p="$f" '{printf "%s  %s\n", $1, p}'
+      if command -v md5 >/dev/null 2>&1; then
+        md5 -q "$f" 2>/dev/null | awk -v p="$f" '{printf "%s  %s\n", $1, p}'
+      else
+        md5sum "$f" 2>/dev/null | awk '{printf "%s  %s\n", $1, $2}'
+      fi
     done >> "$SNAP_BEFORE"
 before_count=$(wc -l < "$SNAP_BEFORE" | tr -d ' ')
 echo "  snapshot: $before_count soul files"
@@ -102,7 +106,11 @@ find "$BASEDIR/workspace" -type f \( -name "*.md" -o -name "*.txt" \) \
   -path "*/soul/*" 2>/dev/null \
   | sort \
   | while read -r f; do
-      md5 -q "$f" 2>/dev/null | awk -v p="$f" '{printf "%s  %s\n", $1, p}'
+      if command -v md5 >/dev/null 2>&1; then
+        md5 -q "$f" 2>/dev/null | awk -v p="$f" '{printf "%s  %s\n", $1, p}'
+      else
+        md5sum "$f" 2>/dev/null | awk '{printf "%s  %s\n", $1, $2}'
+      fi
     done >> "$SNAP_AFTER"
 after_count=$(wc -l < "$SNAP_AFTER" | tr -d ' ')
 echo "  post-run: $after_count soul files"

@@ -13,7 +13,7 @@
  * Does NOT replace executor — it wraps execution decisions.
  */
 
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 
 // ═══════════════════════════════════════════════════════════
 // CIRCUIT BREAKER — Per-agent failure tracking
@@ -418,10 +418,9 @@ class AgentSupervisor {
       process.kill(pid, 0);
 
       // Get RSS (KB) and CPU%
-      const output = execSync(
-        `ps -p ${pid} -o rss=,pcpu= 2>/dev/null`,
-        { encoding: 'utf8', timeout: 3000 }
-      ).trim();
+      const output = execFileSync('ps', ['-p', String(pid), '-o', 'rss=,pcpu='], {
+        encoding: 'utf8', timeout: 3000, stdio: ['pipe', 'pipe', 'pipe']
+      }).trim();
 
       if (!output) return null;
 

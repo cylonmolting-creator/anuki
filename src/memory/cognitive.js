@@ -100,7 +100,7 @@ class CognitiveMemory {
         this._coreMemoryCache = fs.readFileSync(this.coreMemoryFile, 'utf8');
         return this._coreMemoryCache;
       }
-    } catch (e) {}
+    } catch (e) { /* File missing or unreadable — return empty */ }
     this._coreMemoryCache = '';
     return '';
   }
@@ -239,49 +239,7 @@ class CognitiveMemory {
    *
    * @param {object} options - { maxStepsPerEpisode: 10, minAgeMs: 7200000 }
    */
-  cleanupOldSteps(maxAgeDaysOrOptions = 7) {
-    // Backward-compatible: accept both numeric days and options object
-    let options;
-    if (typeof maxAgeDaysOrOptions === 'number') {
-      options = { maxAgeDays: maxAgeDaysOrOptions };
-    } else {
-      options = maxAgeDaysOrOptions || {};
-    }
-
-    const maxAgeDays = options.maxAgeDays || 7;
-    const maxAgeMs = maxAgeDays * 24 * 60 * 60 * 1000;
-    const maxStepsPerEpisode = options.maxStepsPerEpisode || 10;
-    const now = Date.now();
-
-    let totalRemoved = 0;
-    let episodesAffected = 0;
-
-    for (const episode of this.index.episodic) {
-      if (!episode.steps || episode.steps.length === 0) continue;
-
-      const episodeAge = now - new Date(episode.timestamp).getTime();
-
-      // Only cleanup old episodes
-      if (episodeAge < maxAgeMs) continue;
-
-      // Keep only the most recent N steps
-      if (episode.steps.length > maxStepsPerEpisode) {
-        const removed = episode.steps.length - maxStepsPerEpisode;
-        episode.steps = episode.steps.slice(-maxStepsPerEpisode);
-        episode.stepCount = episode.steps.length;
-        totalRemoved += removed;
-        episodesAffected++;
-
-        // Persist the update
-        this._updateEpisodeOnDisk(episode);
-      }
-    }
-
-    if (episodesAffected > 0) {
-      this.log('Cleanup old steps', `${totalRemoved} steps removed from ${episodesAffected} episodes (max-age: ${maxAgeDays}d)`);
-    }
-    return { removed: totalRemoved, episodesAffected };
-  }
+  // cleanupOldSteps — see authoritative implementation below (~line 1800+)
 
   /**
    * (9.2) Clean up old low-importance episodes and episodes without stepContext
@@ -1701,36 +1659,40 @@ Respond in JSON:
   _loadEpisodesForDate(dateStr) {
     const filePath = path.join(this.dirs.episodic, dateStr + '.jsonl');
     const episodes = [];
-    
+
     try {
       if (fs.existsSync(filePath)) {
         const lines = fs.readFileSync(filePath, 'utf8').split('\n').filter(Boolean);
         for (const line of lines) {
           try {
             episodes.push(JSON.parse(line));
-          } catch (e) {}
+          } catch (e) { /* Corrupt JSONL line — skip */ }
         }
       }
-    } catch (e) {}
-    
+    } catch (e) {
+      this.log('Failed to load episodes for ' + dateStr + ': ' + e.message);
+    }
+
     return episodes;
   }
 
   _loadAllSemantic() {
     const filePath = path.join(this.dirs.semantic, 'knowledge.jsonl');
     const facts = [];
-    
+
     try {
       if (fs.existsSync(filePath)) {
         const lines = fs.readFileSync(filePath, 'utf8').split('\n').filter(Boolean);
         for (const line of lines) {
           try {
             facts.push(JSON.parse(line));
-          } catch (e) {}
+          } catch (e) { /* Corrupt JSONL line — skip */ }
         }
       }
-    } catch (e) {}
-    
+    } catch (e) {
+      this.log('Failed to load semantic data: ' + e.message);
+    }
+
     return facts;
   }
 

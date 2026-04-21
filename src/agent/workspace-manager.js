@@ -769,11 +769,11 @@ ${firstPrompt.trim()}
     // Check if port is listening
     if (workspace.port) {
       try {
-        const { execSync } = require('child_process');
-        const result = execSync(`lsof -ti :${workspace.port}`, {
+        const { execFileSync } = require('child_process');
+        const result = execFileSync('lsof', ['-ti', ':' + workspace.port], {
           encoding: 'utf8',
           timeout: 2000,
-          stdio: 'pipe'
+          stdio: ['pipe', 'pipe', 'pipe']
         }).trim();
         if (result) return true;
       } catch (e) {

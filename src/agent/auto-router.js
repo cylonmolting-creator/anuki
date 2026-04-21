@@ -156,26 +156,29 @@ class AutoRouter {
         // Escape alias for regex
         const aliasRe = alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-        // Pattern 1: "ask <alias>" at start of message or after ". "
-        //   "ask math what is 2+2", "ask math: ...", "ask math, ..."
-        if (new RegExp(`(^|[.!?]\\s+)ask\\s+${aliasRe}\\b`, 'i').test(msg)) {
-          return { agentId: agent.id, keyword: alias };
-        }
+        try {
+          // Pattern 1: "ask <alias>" at start of message or after ". "
+          if (new RegExp(`(^|[.!?]\\s+)ask\\s+${aliasRe}\\b`, 'i').test(msg)) {
+            return { agentId: agent.id, keyword: alias };
+          }
 
-        // Pattern 2: "@<alias>" or "/<alias>" prefix (chat-style mentions)
-        if (new RegExp(`(^|\\s)[@/]${aliasRe}\\b`, 'i').test(msg)) {
-          return { agentId: agent.id, keyword: alias };
-        }
+          // Pattern 2: "@<alias>" or "/<alias>" prefix (chat-style mentions)
+          if (new RegExp(`(^|\\s)[@/]${aliasRe}\\b`, 'i').test(msg)) {
+            return { agentId: agent.id, keyword: alias };
+          }
 
-        // Pattern 3: Direct address — alias at start followed by comma, colon, or imperative
-        //   "ENKI, create me..." / "utu: add rule..." / "Hey ENKI ..."
-        if (new RegExp(`^(hey\\s+|ok\\s+|hi\\s+)?${aliasRe}[,:]`, 'i').test(msg)) {
-          return { agentId: agent.id, keyword: alias };
-        }
+          // Pattern 3: Direct address — alias at start followed by comma, colon, or imperative
+          if (new RegExp(`^(hey\\s+|ok\\s+|hi\\s+)?${aliasRe}[,:]`, 'i').test(msg)) {
+            return { agentId: agent.id, keyword: alias };
+          }
 
-        // Pattern 4: "tell <alias> ..." / "send to <alias> ..." routing verbs
-        if (new RegExp(`\\b(tell|send\\s+to|ping|route\\s+to|forward\\s+to)\\s+${aliasRe}\\b`, 'i').test(msg)) {
-          return { agentId: agent.id, keyword: alias };
+          // Pattern 4: "tell <alias> ..." / "send to <alias> ..." routing verbs
+          if (new RegExp(`\\b(tell|send\\s+to|ping|route\\s+to|forward\\s+to)\\s+${aliasRe}\\b`, 'i').test(msg)) {
+            return { agentId: agent.id, keyword: alias };
+          }
+        } catch {
+          // Invalid regex from alias — skip this alias
+          continue;
         }
       }
     }

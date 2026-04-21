@@ -13,6 +13,13 @@ function sanitizeName(str) {
   return str.replace(/<[^>]*>/g, '').trim();
 }
 
+// Safe error message for API responses — never expose internal details in production
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
+function safeErrorMsg(err, fallback = 'Internal server error') {
+  if (!IS_PRODUCTION) return err.message || fallback;
+  return fallback;
+}
+
 class HTTPServer {
   constructor(workspaceManager, logger, agentManager, conversationManager) {
     this.workspaceManager = workspaceManager;
@@ -49,7 +56,7 @@ class HTTPServer {
         if (err) {
           // Body-parser error (413 entity too large, 400 malformed JSON, etc.)
           const status = err.status || 400;
-          return res.status(status).json({ error: err.message || 'Invalid request body' });
+          return res.status(status).json({ error: safeErrorMsg(err, 'Invalid request body') });
         }
         const parseDuration = Date.now() - parseStart;
         // Record HTTP parse latency
@@ -243,7 +250,7 @@ class HTTPServer {
         const status = await this.agentExecutor.getProviderStatus();
         res.json(status);
       } catch (err) {
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ error: safeErrorMsg(err) });
       }
     });
 
@@ -320,7 +327,7 @@ class HTTPServer {
         });
       } catch (e) {
         this.logger.error('HTTP', 'Failed to get system stats', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -331,7 +338,7 @@ class HTTPServer {
         res.json(configManager.getSanitized());
       } catch (e) {
         this.logger.error('HTTP', 'Failed to get config', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -346,7 +353,7 @@ class HTTPServer {
         });
       } catch (e) {
         this.logger.error('HTTP', 'Failed to list workspaces', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -383,7 +390,7 @@ class HTTPServer {
         res.json({ workspace });
       } catch (e) {
         this.logger.error('HTTP', 'Failed to create workspace', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -396,7 +403,7 @@ class HTTPServer {
         res.json({ workspace });
       } catch (e) {
         this.logger.error('HTTP', 'Failed to get workspace', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -418,7 +425,7 @@ class HTTPServer {
         res.json({ success: true });
       } catch (e) {
         this.logger.error('HTTP', 'Failed to delete workspace', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -434,7 +441,7 @@ class HTTPServer {
         res.json({ soulFiles: publicSoulFiles });
       } catch (e) {
         this.logger.error('HTTP', 'Failed to load soul files', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -457,7 +464,7 @@ class HTTPServer {
         const content = fs.readFileSync(filePath, 'utf8');
         res.type('text/plain').send(content);
       } catch (e) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -476,7 +483,7 @@ class HTTPServer {
         const content = fs.readFileSync(filePath, 'utf8');
         res.json({ content });
       } catch (e) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -503,7 +510,7 @@ class HTTPServer {
         const content = fs.readFileSync(filePath, 'utf8');
         res.json({ content });
       } catch (e) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -531,7 +538,7 @@ class HTTPServer {
           }));
         res.json({ sandboxDir: ws.cwdOverride, files });
       } catch (e) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -641,7 +648,7 @@ class HTTPServer {
         }
       } catch (e) {
         this.logger.error('HTTP', 'Failed to delete soul file', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -663,7 +670,7 @@ class HTTPServer {
         });
       } catch (e) {
         this.logger.error('HTTP', 'Image upload error', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -701,7 +708,7 @@ class HTTPServer {
         });
       } catch (e) {
         this.logger.error('HTTP', 'Multiple images upload error', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -712,7 +719,7 @@ class HTTPServer {
         res.json({ agents });
       } catch (e) {
         this.logger.error('HTTP', 'Failed to list agents', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -739,7 +746,7 @@ class HTTPServer {
         res.json({ crew });
       } catch (e) {
         this.logger.error('HTTP', 'Failed to list crew', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -758,7 +765,7 @@ class HTTPServer {
         }));
         res.json({ templates });
       } catch (e) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -791,7 +798,7 @@ class HTTPServer {
           } : null
         });
       } catch (e) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -862,7 +869,7 @@ class HTTPServer {
         res.json({ agents: discovery, count: discovery.length });
       } catch (e) {
         this.logger.error('HTTP', 'Failed to discover agents', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -916,7 +923,7 @@ class HTTPServer {
         res.json({ matches, count: matches.length, query: searchTerm });
       } catch (e) {
         this.logger.error('HTTP', 'Failed to search agents', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -945,7 +952,7 @@ class HTTPServer {
         });
       } catch (e) {
         this.logger.error('HTTP', 'Failed to get agent skills', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -973,7 +980,7 @@ class HTTPServer {
         });
       } catch (e) {
         this.logger.error('HTTP', 'Failed to get skill', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -1001,7 +1008,7 @@ class HTTPServer {
         res.json(result);
       } catch (e) {
         this.logger.error('HTTP', 'Failed to validate skill input', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -1029,7 +1036,7 @@ class HTTPServer {
         res.json(result);
       } catch (e) {
         this.logger.error('HTTP', 'Failed to validate skill output', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -1082,7 +1089,7 @@ class HTTPServer {
         res.status(201).json({ skill, message: `Skill "${name}" registered successfully` });
       } catch (e) {
         this.logger.error('HTTP', 'Failed to register skill', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -1097,7 +1104,7 @@ class HTTPServer {
         res.json(stats);
       } catch (e) {
         this.logger.error('HTTP', 'Failed to get cache stats', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -1142,7 +1149,7 @@ class HTTPServer {
         res.json(results);
       } catch (e) {
         this.logger.error('HTTP', 'Failed to search skills', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -1156,7 +1163,7 @@ class HTTPServer {
         res.json({ categories, count: categories.length });
       } catch (e) {
         this.logger.error('HTTP', 'Failed to get categories', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -1182,7 +1189,7 @@ class HTTPServer {
         });
       } catch (e) {
         this.logger.error('HTTP', 'Failed to get skills by category', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -1208,7 +1215,7 @@ class HTTPServer {
         });
       } catch (e) {
         this.logger.error('HTTP', 'Failed to get skills by name', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -1238,7 +1245,7 @@ class HTTPServer {
         });
       } catch (e) {
         this.logger.error('HTTP', 'Failed to get skill registry', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -1264,7 +1271,7 @@ class HTTPServer {
         });
       } catch (e) {
         this.logger.error('HTTP', 'Failed to refresh agent skills', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -1294,7 +1301,7 @@ class HTTPServer {
         });
       } catch (e) {
         this.logger.error('HTTP', 'Failed to update agent rating', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -1310,7 +1317,7 @@ class HTTPServer {
         res.json(systemStats);
       } catch (e) {
         this.logger.error('HTTP', 'Failed to get agent stats', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -1329,7 +1336,7 @@ class HTTPServer {
         res.json(stats);
       } catch (e) {
         this.logger.error('HTTP', 'Failed to get agent stats', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -1355,7 +1362,7 @@ class HTTPServer {
         res.json(systemStats);
       } catch (e) {
         this.logger.error('HTTP', 'Enhanced stats error', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -1376,7 +1383,7 @@ class HTTPServer {
         res.json(stats);
       } catch (e) {
         this.logger.error('HTTP', 'Enhanced agent stats error', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -1400,7 +1407,7 @@ class HTTPServer {
         res.json({ outputs: enriched });
       } catch (e) {
         this.logger.error('HTTP', 'Agent outputs error', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -1419,7 +1426,7 @@ class HTTPServer {
         res.json(data);
       } catch (e) {
         this.logger.error('HTTP', 'Agent outputs detail error', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -1435,7 +1442,7 @@ class HTTPServer {
         res.json(this.usageTracker.getSummary());
       } catch (e) {
         this.logger.error('HTTP', 'Failed to get usage', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -1450,7 +1457,7 @@ class HTTPServer {
         res.json(this.agentExecutor.performanceProfiler.getSummary());
       } catch (e) {
         this.logger.error('HTTP', 'Failed to get performance stats', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -1471,7 +1478,7 @@ class HTTPServer {
         });
       } catch (e) {
         this.logger.error('HTTP', 'Failed to get layer performance stats', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -1504,7 +1511,7 @@ class HTTPServer {
         res.json(agent);
       } catch (e) {
         this.logger.error('HTTP', 'Failed to create agent', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -1535,7 +1542,7 @@ class HTTPServer {
         res.json(result);
       } catch (e) {
         this.logger.error('HTTP', 'Failed to delete agent', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -1555,7 +1562,7 @@ class HTTPServer {
         res.json(agent);
       } catch (e) {
         this.logger.error('HTTP', 'Failed to update agent', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -1591,7 +1598,7 @@ class HTTPServer {
         res.json({ avatarUrl, agent });
       } catch (e) {
         this.logger.error('HTTP', 'Failed to upload avatar', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -1605,7 +1612,7 @@ class HTTPServer {
         res.json(agent);
       } catch (e) {
         this.logger.error('HTTP', 'Failed to start agent', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -1619,7 +1626,7 @@ class HTTPServer {
         res.json({ success: true });
       } catch (e) {
         this.logger.error('HTTP', 'Failed to stop agent', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -1671,7 +1678,7 @@ class HTTPServer {
         res.json(lifecycle);
       } catch (e) {
         this.logger.error('HTTP', 'Failed to get agent lifecycle', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -1685,7 +1692,7 @@ class HTTPServer {
         res.json(overview);
       } catch (e) {
         this.logger.error('HTTP', 'Failed to get lifecycle overview', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -1701,7 +1708,7 @@ class HTTPServer {
         res.json({ paused, count: paused.length });
       } catch (e) {
         this.logger.error('HTTP', 'Failed to check idle agents', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -1723,7 +1730,7 @@ class HTTPServer {
         res.json(trace);
       } catch (e) {
         this.logger.error('HTTP', 'Failed to get reasoning trace', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -1743,7 +1750,7 @@ class HTTPServer {
         res.json({ ok: true, conversationId });
       } catch (e) {
         this.logger.error('HTTP', 'Failed to clear reasoning trace', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -1770,7 +1777,7 @@ class HTTPServer {
         });
       } catch (e) {
         this.logger.error('HTTP', 'Failed to get confidence score', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -1790,7 +1797,7 @@ class HTTPServer {
         res.json(decisions);
       } catch (e) {
         this.logger.error('HTTP', 'Failed to get decision tree', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -1810,7 +1817,7 @@ class HTTPServer {
         res.json({ ok: true, agentId });
       } catch (e) {
         this.logger.error('HTTP', 'Failed to clear decision log', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -1912,7 +1919,7 @@ class HTTPServer {
         res.json({ groups, count: groups.length });
       } catch (e) {
         this.logger.error('HTTP', 'Failed to list groups', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -1930,7 +1937,7 @@ class HTTPServer {
         res.json(group);
       } catch (e) {
         this.logger.error('HTTP', 'Failed to get group', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -1971,7 +1978,7 @@ class HTTPServer {
         res.json({ history, count: history.length });
       } catch (e) {
         this.logger.error('HTTP', 'Failed to get group history', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -2011,7 +2018,7 @@ class HTTPServer {
         res.json(result);
       } catch (e) {
         this.logger.error('HTTP', 'Task planning failed', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -2025,7 +2032,7 @@ class HTTPServer {
         res.json({ plans, count: plans.length });
       } catch (e) {
         this.logger.error('HTTP', 'Failed to list task plans', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -2037,7 +2044,7 @@ class HTTPServer {
         res.json(this.taskPlanner.getStats());
       } catch (e) {
         this.logger.error('HTTP', 'Failed to get task planner stats', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -2055,7 +2062,7 @@ class HTTPServer {
         res.json(plan);
       } catch (e) {
         this.logger.error('HTTP', 'Failed to get task plan', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -2067,7 +2074,7 @@ class HTTPServer {
         }
         res.json({ namespaces: this.sharedContext.listNamespaces(), stats: this.sharedContext.getStats() });
       } catch (e) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -2080,7 +2087,7 @@ class HTTPServer {
         const result = this.sharedContext.create({ taskDescription, createdBy, participants });
         res.json(result);
       } catch (e) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -2093,7 +2100,7 @@ class HTTPServer {
         if (!data) return res.status(404).json({ error: 'Namespace not found' });
         res.json(data);
       } catch (e) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -2109,7 +2116,7 @@ class HTTPServer {
         const result = this.sharedContext.set(req.params.id, key, value, agentId || 'api');
         res.json(result);
       } catch (e) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -2121,7 +2128,7 @@ class HTTPServer {
         const deleted = this.sharedContext.deleteNamespace(req.params.id);
         res.json({ deleted });
       } catch (e) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -2151,7 +2158,7 @@ class HTTPServer {
         }
       } catch (e) {
         this.logger.error('HTTP', 'Failed to load conversations', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -2217,7 +2224,7 @@ class HTTPServer {
         res.json({ messages: conversations, total: sentMessages.length });
       } catch (e) {
         this.logger.error('HTTP', 'Failed to load inter-agent history', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -2278,7 +2285,7 @@ class HTTPServer {
         this.logger.info('HTTP', `Streaming test: ${chunks.length} chunks sent to conv ${conversationId}`);
       } catch (e) {
         this.logger.error('HTTP', 'Streaming test failed', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -2302,7 +2309,7 @@ class HTTPServer {
         res.json({ success: !result.error, cleanedCount: result.cleanedCount, error: result.error });
       } catch (e) {
         this.logger.error('HTTP', 'Memory cleanup failed', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -2319,7 +2326,7 @@ class HTTPServer {
         res.json({ goal, stepHistory, count: stepHistory.length });
       } catch (e) {
         this.logger.error('HTTP', 'Step history fetch failed', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -2341,7 +2348,7 @@ class HTTPServer {
         res.json(stats);
       } catch (e) {
         this.logger.error('HTTP', 'Memory stats fetch failed', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -2365,7 +2372,7 @@ class HTTPServer {
         res.json(conversation);
       } catch (e) {
         this.logger.error('HTTP', 'Failed to create conversation', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -2383,7 +2390,7 @@ class HTTPServer {
         res.json({ success: true });
       } catch (e) {
         this.logger.error('HTTP', 'Failed to delete conversation', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -2398,7 +2405,7 @@ class HTTPServer {
         res.json(conv);
       } catch (e) {
         this.logger.error('HTTP', 'Failed to update conversation', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -2510,7 +2517,7 @@ class HTTPServer {
         res.json(result);
       } catch (err) {
         this.logger.error('HTTP', `Safe restart error: ${err.message}`);
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ error: safeErrorMsg(err) });
       }
     });
 
@@ -2527,7 +2534,7 @@ class HTTPServer {
         res.json(this.agentExecutor.getSafeRestartStatus());
       } catch (err) {
         this.logger.error('HTTP', `Safe restart status error: ${err.message}`);
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ error: safeErrorMsg(err) });
       }
     });
 
@@ -2555,7 +2562,7 @@ class HTTPServer {
         res.json({ success: true, key, sessionId });
       } catch (err) {
         this.logger.error('HTTP', `Session inject error: ${err.message}`);
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ error: safeErrorMsg(err) });
       }
     });
 
@@ -2626,7 +2633,7 @@ class HTTPServer {
           timestamp: new Date().toISOString()
         });
       } catch (e) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -2671,7 +2678,7 @@ class HTTPServer {
         res.json(results);
       } catch (e) {
         this.logger.error('HTTP', `Error analysis failed: ${e.message}`);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 
@@ -2708,7 +2715,7 @@ class HTTPServer {
         });
       } catch (e) {
         this.logger.error('HTTP', `Failure patterns endpoint failed: ${e.message}`);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: safeErrorMsg(e) });
       }
     });
 

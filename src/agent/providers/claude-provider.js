@@ -143,9 +143,9 @@ class ClaudeProvider extends BaseProvider {
 
   validate() {
     // Check if claude binary exists
-    const { execSync } = require('child_process');
+    const { execFileSync } = require('child_process');
     try {
-      execSync(`which ${this.claudePath}`, { timeout: 5000, stdio: 'pipe' });
+      execFileSync('which', [this.claudePath], { timeout: 5000, stdio: 'pipe' });
       return { valid: true };
     } catch {
       return {

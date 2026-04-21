@@ -41,9 +41,9 @@ jobs:
         run: |
           node src/index.js &
           SERVER_PID=$!
+          trap "kill $SERVER_PID 2>/dev/null || true" EXIT
           sleep 3
           node test/api-routes.test.js
-          kill $SERVER_PID 2>/dev/null || true
 
   e2e:
     runs-on: ubuntu-latest

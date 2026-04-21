@@ -212,11 +212,14 @@ class SkillRegistry {
 
     // Method 1: Match known skill domains
     for (const domain of skillDomains) {
-      // Check if domain keyword appears in content (word boundary aware)
-      const searchTerm = domain.replace(/-/g, '[- ]?');
-      const regex = new RegExp(`\\b${searchTerm}\\b`, 'i');
-      if (regex.test(lowerContent)) {
-        skills.add(domain);
+      try {
+        const searchTerm = domain.replace(/-/g, '[- ]?');
+        const regex = new RegExp(`\\b${searchTerm}\\b`, 'i');
+        if (regex.test(lowerContent)) {
+          skills.add(domain);
+        }
+      } catch {
+        // Invalid regex from domain name — skip
       }
     }
 

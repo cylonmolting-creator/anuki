@@ -13,7 +13,7 @@
  * With this, the system learns from experience.
  */
 
-const { execSync } = require('child_process');
+const { execFile } = require('child_process');
 
 class ReflectionEngine {
   constructor(cognitiveMemory, logger) {
@@ -202,23 +202,26 @@ If there is nothing worth saving: { "nothing_important": true }`,
     try {
       const fullPrompt = prompt.system + '\n\n' + prompt.userMessage;
 
-      const result = execSync(
-        'claude -p 2>/dev/null',
-        {
-          input: fullPrompt,
+      const result = await new Promise((resolve, reject) => {
+        const child = execFile('claude', ['-p'], {
           encoding: 'utf8',
           timeout: 60000,
           maxBuffer: 10 * 1024 * 1024,
           env: Object.assign({}, process.env, { HOME: require('os').homedir() })
-        }
-      ).trim();
+        }, (err, stdout) => {
+          if (err) return reject(err);
+          resolve(stdout.trim());
+        });
+        child.stdin.write(fullPrompt);
+        child.stdin.end();
+      });
 
       // Try to extract JSON from response
       const jsonMatch = result.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         return JSON.parse(jsonMatch[0]);
       }
-      
+
       return result;
     } catch (e) {
       this.log('Claude call failed: ' + e.message);

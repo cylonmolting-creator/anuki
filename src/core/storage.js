@@ -41,20 +41,24 @@ class Storage {
       if (fs.existsSync(this.persistentFile)) {
         return fs.readFileSync(this.persistentFile, 'utf8');
       }
-    } catch (e) {}
+    } catch (e) { /* File missing or unreadable — return empty */ }
     return '';
   }
 
   savePersistent(data) {
     try {
       fs.writeFileSync(this.persistentFile, data, 'utf8');
-    } catch (e) {}
+    } catch (e) {
+      console.error('[Storage] Failed to save persistent data:', e.message);
+    }
   }
 
   appendPersistent(data) {
     try {
       fs.appendFileSync(this.persistentFile, data, 'utf8');
-    } catch (e) {}
+    } catch (e) {
+      console.error('[Storage] Failed to append persistent data:', e.message);
+    }
   }
 
   _loadReminders() {
@@ -138,7 +142,7 @@ class Storage {
       if (fs.existsSync(tasksFile)) {
         return fs.readFileSync(tasksFile, 'utf8');
       }
-    } catch (e) {}
+    } catch (e) { /* File missing — return empty */ }
     return '';
   }
 
@@ -146,7 +150,9 @@ class Storage {
     try {
       const tasksFile = path.join(this.dataDir, 'tasks.txt');
       fs.writeFileSync(tasksFile, data, 'utf8');
-    } catch (e) {}
+    } catch (e) {
+      console.error('[Storage] Failed to save tasks:', e.message);
+    }
   }
 }
 

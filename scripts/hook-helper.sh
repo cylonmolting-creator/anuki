@@ -53,10 +53,10 @@ get_last_message() {
     return
   fi
 
-  # Read last 50 lines, reverse (tail -r is macOS compatible, tac is GNU only)
+  # Read last 50 lines, reverse (tail -r on macOS, tac on Linux)
   _LAST_MSG_CACHE=$(
     tail -50 "$_HOOK_TRANSCRIPT_PATH" 2>/dev/null \
-    | tail -r \
+    | if command -v tac >/dev/null 2>&1; then tac; else tail -r; fi \
     | while IFS= read -r line; do
         msg_type=$(echo "$line" | jq -r '.type // empty' 2>/dev/null)
         if [ "$msg_type" = "assistant" ]; then

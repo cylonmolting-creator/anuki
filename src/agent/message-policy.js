@@ -140,9 +140,13 @@ class MessagePolicy {
 
     // Match by message pattern (regex)
     if (match.messagePattern) {
-      const pattern = new RegExp(match.messagePattern, 'i');
-      if (!pattern.test(message)) {
-        return false;
+      try {
+        const pattern = new RegExp(match.messagePattern, 'i');
+        if (!pattern.test(message)) {
+          return false;
+        }
+      } catch {
+        return false; // Invalid regex pattern — treat as no match
       }
     }
 

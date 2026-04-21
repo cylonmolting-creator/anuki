@@ -16,8 +16,6 @@
       --text: #e0e0e8;
       --text-dim: #8888a0;
       --accent: #c9a84c;
-      --accent-hover: #d4b85c;
-      --accent-dim: #8B6914;
       --success: #22c55e;
       --warning: #f59e0b;
       --error: #ef4444;
@@ -792,7 +790,7 @@
 
       // Update header
       document.getElementById('headerName').textContent = agent.name;
-      document.getElementById('headerDot').style.background = agentColors[agent.name] || 'var(--accent)';
+      document.getElementById('headerDot').style.background = 'var(--accent)';
 
       // Update sidebar selection
       document.querySelectorAll('.agent-item').forEach(el => {
@@ -837,7 +835,6 @@
       ws = new WebSocket(`${protocol}//${location.host}`);
 
       ws.onopen = () => {
-        console.log('WebSocket connected');
         document.getElementById('headerStatus').textContent = 'online';
         document.getElementById('reconnectBanner').classList.remove('active');
         document.getElementById('messageInput').disabled = false;

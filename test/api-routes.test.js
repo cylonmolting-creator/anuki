@@ -9,8 +9,8 @@
  */
 
 const http = require('http');
-// Always use port 3000 — Anuki's default. Don't inherit from env.
-const PORT = 3000;
+// Use ANUKI_TEST_PORT if set (CI/gate scripts), fall back to Anuki default
+const PORT = parseInt(process.env.ANUKI_TEST_PORT) || parseInt(process.env.PORT) || 3000;
 
 // Dynamic workspace + agent state — filled at runtime
 let ALL_WORKSPACES = [];

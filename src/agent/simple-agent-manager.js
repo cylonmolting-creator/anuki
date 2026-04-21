@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { spawn, execSync, execFileSync } = require('child_process');
+const { spawn, execFileSync } = require('child_process');
 
 const MASTER_DIR = require('../utils/base-dir');
 const DATA_DIR = path.join(MASTER_DIR, 'data');
@@ -445,7 +445,7 @@ function copyDefaultIcon(icnsPath, safeName) {
   const tempIconSet = path.join('/tmp', `${safeName}-default.iconset`);
   try {
     fs.cpSync(ICON_PATH, tempIconSet, { recursive: true });
-    execSync(`iconutil -c icns "${tempIconSet}" -o "${icnsPath}"`, { stdio: 'ignore' });
+    execFileSync('iconutil', ['-c', 'icns', tempIconSet, '-o', icnsPath], { stdio: 'ignore' });
     fs.rmSync(tempIconSet, { recursive: true });
   } catch (e) {
     console.error('Default icon creation warning:', e.message);

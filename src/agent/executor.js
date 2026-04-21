@@ -137,12 +137,6 @@ setInterval(() => {
 // Maps conversationId -> { contextRelevance, toolSuccessRate, modelConfidence, composite }
 // Updated after each response, cleared when conversation ends
 const confidenceScores = new Map();
-const CONFIDENCE_WEIGHTS = {
-  contextRelevance: 0.40,  // 40% — how relevant was context to question
-  toolSuccess: 0.35,       // 35% — percentage of tool calls that succeeded
-  modelConfidence: 0.25    // 25% — internal model uncertainty signals
-};
-
 // Decision tree storage (roadmap 10.2)
 // Maps agentId -> array of { timestamp, type (model_choice/tool_selection/context_action), details, rationale }
 // Kept in-memory with periodic persistence, auto-cleanup after 48 hours
@@ -1176,58 +1170,7 @@ class AgentExecutor {
     reasoningEnabled.delete(conversationId);
   }
 
-  // Calculate confidence score for response (roadmap 9.3)
-  // Combines: context relevance (40%), tool success rate (35%), model uncertainty (25%)
-  // Signature: _calculateConfidence({ userMessage, fullResponse, toolUseCount, toolSuccessCount, modelUncertainty })
-  _calculateConfidence(options = {}) {
-    const { userMessage = '', fullResponse = '', toolUseCount = 0, toolSuccessCount = 0, modelUncertainty = 0 } = options;
-
-    let contextRelevance = 0.7; // Default neutral
-    let toolSuccessRate = 1.0;  // Default all succeeded
-    let modelConfidence = 0.75; // Default moderate
-
-    // 1. CONTEXT RELEVANCE — estimate from message length/complexity
-    if (userMessage.length > 500) {
-      contextRelevance = 0.85; // Long message likely has more context
-    } else if (userMessage.length > 200) {
-      contextRelevance = 0.75;
-    } else if (userMessage.length < 30) {
-      contextRelevance = 0.55; // Very short message
-    }
-
-    // 2. TOOL SUCCESS RATE — from explicit counts passed in
-    if (toolUseCount > 0) {
-      toolSuccessRate = Math.max(0, toolSuccessCount / toolUseCount);
-    }
-
-    // 3. MODEL UNCERTAINTY — from explicit parameter + response analysis
-    modelConfidence = 1.0 - Math.max(0, Math.min(1, modelUncertainty));
-
-    // Adjust based on response content
-    if (/i'm not sure|i don't know|i cannot|bilemiyorum|emin deg|konusunda/i.test(fullResponse)) {
-      modelConfidence *= 0.7; // Reduce confidence for uncertain statements
-    } else if (/however|but|on the other hand|ancak|fakat|ama/i.test(fullResponse)) {
-      modelConfidence *= 0.85; // Slight reduction for caveated statements
-    } else if (fullResponse.length > 500 && /^##|^###|^####|\n\*\*|\n-/.test(fullResponse)) {
-      modelConfidence = Math.min(0.95, modelConfidence * 1.1); // Boost for structured, detailed response
-    }
-
-    modelConfidence = Math.max(0, Math.min(1, modelConfidence));
-
-    // Composite confidence (weighted average)
-    const composite =
-      (contextRelevance * CONFIDENCE_WEIGHTS.contextRelevance) +
-      (toolSuccessRate * CONFIDENCE_WEIGHTS.toolSuccess) +
-      (modelConfidence * CONFIDENCE_WEIGHTS.modelConfidence);
-
-    return {
-      contextRelevance: Math.round(contextRelevance * 100) / 100,
-      toolSuccessRate: Math.round(toolSuccessRate * 100) / 100,
-      modelConfidence: Math.round(modelConfidence * 100) / 100,
-      confidence: Math.round(composite * 100) / 100,
-      composite: Math.round(composite * 100) / 100
-    };
-  }
+  // _calculateConfidence — see line ~4119 (authoritative implementation)
 
   getConfidenceScore(conversationId) {
     return confidenceScores.get(conversationId) || {

@@ -195,7 +195,7 @@ test.describe('WS Resilience — Heartbeat', () => {
     const pongMsg = sentMessages.find(m => m.type === 'pong');
     expect(pongMsg).toBeTruthy();
     // Pong should echo the timestamp or include its own
-    expect(pongMsg.timestamp || pongMsg.ts || true).toBeTruthy();
+    expect(pongMsg.timestamp || pongMsg.ts).toBeTruthy();
   });
 });
 
@@ -269,7 +269,7 @@ test.describe('WS Resilience — Server Restart Signal', () => {
     await page.waitForTimeout(3000);
     const status = await page.locator('#headerStatus').textContent();
     // Should be online or reconnecting (depends on timing)
-    expect(['online', 'reconnecting...', 'server restarting...'].includes(status) || status === 'online').toBeTruthy();
+    expect(['online', 'reconnecting...', 'server restarting...'].includes(status)).toBeTruthy();
   });
 
   test('system event displays in chat', async ({ page }) => {

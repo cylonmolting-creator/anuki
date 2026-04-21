@@ -25,7 +25,7 @@ class GatewayWebSocketServer {
     // Message deduplication: messageId -> timestamp (5-min TTL)
     this._dedupCache = new Map();
     this._dedupTTL = 5 * 60 * 1000; // 5 minutes
-    setInterval(() => this._cleanDedupCache(), 60000); // Cleanup every minute
+    this._dedupCleanupTimer = setInterval(() => this._cleanDedupCache(), 60000);
 
     // Resume event buffer: when a resumed job streams events but no client is watching,
     // buffer them so they can be replayed when a client selects that conversation.
@@ -862,6 +862,7 @@ class GatewayWebSocketServer {
   close() {
     if (this._rateLimitCleanup) clearInterval(this._rateLimitCleanup);
     if (this._resumeBufferCleanup) clearInterval(this._resumeBufferCleanup);
+    if (this._dedupCleanupTimer) clearInterval(this._dedupCleanupTimer);
     this.wss.close();
     this.logger.info('WebSocket', 'Server closed');
   }

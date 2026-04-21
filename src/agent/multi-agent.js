@@ -248,9 +248,13 @@ class MultiAgentRouter {
 
     // Pattern match on userId
     if (match.userPattern) {
-      const regex = new RegExp(match.userPattern);
-      if (!regex.test(userId)) {
-        return false;
+      try {
+        const regex = new RegExp(match.userPattern);
+        if (!regex.test(userId)) {
+          return false;
+        }
+      } catch {
+        return false; // Invalid regex pattern — treat as no match
       }
     }
 
