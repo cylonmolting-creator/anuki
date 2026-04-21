@@ -103,7 +103,10 @@ class CognitiveMemory {
 
   updateCoreMemory(newContent) {
     try {
-      fs.writeFileSync(this.coreMemoryFile, newContent, 'utf8');
+      // Atomic write: write to temp file then rename (prevents corruption on crash)
+      const tmpFile = this.coreMemoryFile + '.tmp';
+      fs.writeFileSync(tmpFile, newContent, 'utf8');
+      fs.renameSync(tmpFile, this.coreMemoryFile);
       this.log('Core memory updated');
       return true;
     } catch (e) {
@@ -380,9 +383,11 @@ class CognitiveMemory {
         }
       });
 
-      // Append the updated episode
+      // Atomic write: temp file + rename to prevent data loss on concurrent access
       const updatedContent = filtered.join('\n') + (filtered.length > 0 ? '\n' : '') + JSON.stringify(episode) + '\n';
-      fs.writeFileSync(filePath, updatedContent, 'utf8');
+      const tmpFile = filePath + '.tmp';
+      fs.writeFileSync(tmpFile, updatedContent, 'utf8');
+      fs.renameSync(tmpFile, filePath);
 
       return true;
     } catch (e) {
@@ -968,8 +973,17 @@ Respond in JSON:
    * Save session to disk
    */
   persistSession(channel, userId, session) {
-    const key = channel + '-' + userId;
+    // Sanitize to prevent path traversal (strip anything except alphanumeric, dash, underscore, dot)
+    const safeChannel = String(channel).replace(/[^a-zA-Z0-9_.-]/g, '_');
+    const safeUserId = String(userId).replace(/[^a-zA-Z0-9_.-]/g, '_');
+    const key = safeChannel + '-' + safeUserId;
     const filePath = path.join(this.dirs.sessions, key + '.json');
+    // Double-check: resolved path must be inside sessions dir
+    const resolved = path.resolve(filePath);
+    if (!resolved.startsWith(path.resolve(this.dirs.sessions) + path.sep)) {
+      this.log('Session persist blocked: path traversal attempt');
+      return false;
+    }
     
     try {
       const data = {
@@ -980,7 +994,10 @@ Respond in JSON:
         messages: session.messages || []
       };
       
-      fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
+      // Atomic write: temp file + rename
+      const tmpFile = filePath + '.tmp';
+      fs.writeFileSync(tmpFile, JSON.stringify(data, null, 2), 'utf8');
+      fs.renameSync(tmpFile, filePath);
       return true;
     } catch (e) {
       this.log('Session persist failed: ' + e.message);
@@ -992,8 +1009,15 @@ Respond in JSON:
    * Load session from disk
    */
   loadPersistedSession(channel, userId) {
-    const key = channel + '-' + userId;
+    const safeChannel = String(channel).replace(/[^a-zA-Z0-9_.-]/g, '_');
+    const safeUserId = String(userId).replace(/[^a-zA-Z0-9_.-]/g, '_');
+    const key = safeChannel + '-' + safeUserId;
     const filePath = path.join(this.dirs.sessions, key + '.json');
+    const resolved = path.resolve(filePath);
+    if (!resolved.startsWith(path.resolve(this.dirs.sessions) + path.sep)) {
+      this.log('Session load blocked: path traversal attempt');
+      return { messages: [], created: new Date().toISOString() };
+    }
     
     try {
       if (fs.existsSync(filePath)) {

@@ -19,6 +19,7 @@ const CONFIG_FILE = path.join(__dirname, '../../config.json');
 function deepMerge(target, source) {
   const result = { ...target };
   for (const key of Object.keys(source)) {
+    if (key === '__proto__' || key === 'constructor' || key === 'prototype') continue;
     if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])
         && target[key] && typeof target[key] === 'object' && !Array.isArray(target[key])) {
       result[key] = deepMerge(target[key], source[key]);

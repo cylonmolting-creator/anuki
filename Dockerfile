@@ -9,8 +9,12 @@ RUN npm ci --production
 # Copy application
 COPY . .
 
-# Create data directories
-RUN mkdir -p data logs memory
+# Create data directories and set ownership
+RUN mkdir -p data logs memory && \
+    addgroup -S anuki && adduser -S anuki -G anuki && \
+    chown -R anuki:anuki /app
+
+USER anuki
 
 EXPOSE 3000
 

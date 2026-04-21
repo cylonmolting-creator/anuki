@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { spawn, execSync } = require('child_process');
+const { spawn, execSync, execFileSync } = require('child_process');
 
 const MASTER_DIR = require('../utils/base-dir');
 const DATA_DIR = path.join(MASTER_DIR, 'data');
@@ -391,39 +391,36 @@ function createIconFromAvatar(avatarPath, icnsPath, safeName) {
 
   try {
     if (ext === '.svg') {
-      // Convert SVG to PNG at different sizes using rsvg-convert or sips
+      // Convert SVG to PNG at different sizes using rsvg-convert (argument array — no shell injection)
       for (const size of sizes) {
         const outFile = path.join(tempIconSet, `icon_${size}x${size}.png`);
         const out2xFile = path.join(tempIconSet, `icon_${size}x${size}@2x.png`);
 
         try {
-          // Try rsvg-convert first (if installed via homebrew)
-          execSync(`rsvg-convert -w ${size} -h ${size} "${avatarPath}" -o "${outFile}"`, { stdio: 'ignore' });
+          execFileSync('rsvg-convert', ['-w', String(size), '-h', String(size), avatarPath, '-o', outFile], { stdio: 'ignore' });
           if (size <= 512) {
-            execSync(`rsvg-convert -w ${size * 2} -h ${size * 2} "${avatarPath}" -o "${out2xFile}"`, { stdio: 'ignore' });
+            execFileSync('rsvg-convert', ['-w', String(size * 2), '-h', String(size * 2), avatarPath, '-o', out2xFile], { stdio: 'ignore' });
           }
         } catch (e) {
-          // Fallback: use sips (macOS built-in, doesn't support SVG well but worth a try)
-          // Skip if rsvg-convert not available
           console.warn(`rsvg-convert not found, skipping SVG conversion for ${size}px`);
           break;
         }
       }
     } else {
-      // PNG/JPG/WebP: resize with sips (macOS built-in)
+      // PNG/JPG/WebP: resize with sips (macOS built-in, argument array)
       for (const size of sizes) {
         const outFile = path.join(tempIconSet, `icon_${size}x${size}.png`);
         const out2xFile = path.join(tempIconSet, `icon_${size}x${size}@2x.png`);
 
-        execSync(`sips -z ${size} ${size} "${avatarPath}" --out "${outFile}"`, { stdio: 'ignore' });
+        execFileSync('sips', ['-z', String(size), String(size), avatarPath, '--out', outFile], { stdio: 'ignore' });
         if (size <= 512) {
-          execSync(`sips -z ${size * 2} ${size * 2} "${avatarPath}" --out "${out2xFile}"`, { stdio: 'ignore' });
+          execFileSync('sips', ['-z', String(size * 2), String(size * 2), avatarPath, '--out', out2xFile], { stdio: 'ignore' });
         }
       }
     }
 
-    // Convert iconset to icns
-    execSync(`iconutil -c icns "${tempIconSet}" -o "${icnsPath}"`, { stdio: 'ignore' });
+    // Convert iconset to icns (argument array)
+    execFileSync('iconutil', ['-c', 'icns', tempIconSet, '-o', icnsPath], { stdio: 'ignore' });
     fs.rmSync(tempIconSet, { recursive: true });
   } catch (e) {
     // Cleanup on error
@@ -707,16 +704,8 @@ function createAgent(config, options = {}) {
 
   saveAgents(data);
 
-  // Refresh Finder/Dock — only if we actually wrote an app bundle.
-  // Otherwise this is a massive UX hit (killing Finder for every agent
-  // creation froze the desktop during bulk creation).
-  if (agent.appPath) {
-    try {
-      spawn('killall', ['Finder', 'Dock']);
-    } catch (e) {
-      // Ignore
-    }
-  }
+  // Note: Finder/Dock refresh removed — killall Finder Dock is too disruptive
+  // to the user's desktop. macOS refreshes icons automatically.
 
   return agent;
 }
@@ -765,12 +754,7 @@ function deleteAgent(agentId, options = {}) {
   data.agents.splice(agentIndex, 1);
   saveAgents(data);
 
-  // Refresh Finder/Dock
-  try {
-    spawn('killall', ['Finder', 'Dock']);
-  } catch (e) {
-    // Ignore
-  }
+  // Note: Finder/Dock refresh removed — too disruptive to user desktop
 
   return { success: true, preservedWorkspace: preserveWorkspace };
 }

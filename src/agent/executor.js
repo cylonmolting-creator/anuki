@@ -105,11 +105,31 @@ function _recordToolResult(conversationId, id, output, success) {
   }
 }
 
-// Periodic TTL cleanup for tool history
+// Periodic TTL cleanup for tool history + reasoning traces + confidence scores
 setInterval(() => {
-  const cutoff = Date.now() - TOOL_HISTORY_TTL_MS;
+  const toolCutoff = Date.now() - TOOL_HISTORY_TTL_MS;
   for (const [cid, arr] of conversationToolHistory.entries()) {
-    if (!arr.length || arr[arr.length - 1].ts < cutoff) conversationToolHistory.delete(cid);
+    if (!arr.length || arr[arr.length - 1].ts < toolCutoff) conversationToolHistory.delete(cid);
+  }
+  // Max 500 conversations tracked — evict oldest if exceeded
+  if (conversationToolHistory.size > 500) {
+    const keys = [...conversationToolHistory.keys()];
+    for (let i = 0; i < keys.length - 500; i++) conversationToolHistory.delete(keys[i]);
+  }
+  // Reasoning traces TTL cleanup
+  const traceCutoff = Date.now() - REASONING_TRACE_TTL;
+  for (const [cid, trace] of reasoningTraces.entries()) {
+    const ts = trace.startedAt || trace.steps?.[0]?.timestamp;
+    if (ts && new Date(ts).getTime() < traceCutoff) reasoningTraces.delete(cid);
+  }
+  if (reasoningTraces.size > 500) {
+    const keys = [...reasoningTraces.keys()];
+    for (let i = 0; i < keys.length - 500; i++) reasoningTraces.delete(keys[i]);
+  }
+  // Confidence scores — evict if > 500 entries
+  if (confidenceScores.size > 500) {
+    const keys = [...confidenceScores.keys()];
+    for (let i = 0; i < keys.length - 500; i++) confidenceScores.delete(keys[i]);
   }
 }, 3600000).unref?.();
 

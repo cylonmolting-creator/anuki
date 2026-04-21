@@ -662,7 +662,7 @@
         <label>API Key (BYOK)</label>
         <input type="password" id="apiKey" placeholder="sk-ant-..." />
       </div>
-      <p style="color:var(--text-secondary);font-size:0.85rem;margin:0.5rem 0;">Model and provider settings are configured in <code>config.json</code>.</p>
+      <p style="color:var(--text-dim);font-size:0.85rem;margin:0.5rem 0;">Model and provider settings are configured in <code>config.json</code>.</p>
       <div class="modal-actions">
         <button class="btn-cancel" onclick="closeSettings()">Cancel</button>
         <button class="btn-save" onclick="saveSettings()">Save</button>
@@ -679,7 +679,7 @@
     let agents = [];
     let conversationId = null;
 
-    const agentColors = {};  // All agents use gold accent by default
+    // Agent colors removed — all agents use gold accent (--accent) by default
 
     // ═══════════════════════════════════════════════════════
     // Init
@@ -718,7 +718,7 @@
         li.onclick = () => selectAgent(a.id);
         const dot = document.createElement('div');
         dot.className = 'agent-dot';
-        dot.style.background = agentColors[a.name] || 'var(--accent)';
+        dot.style.background = 'var(--accent)';
         const info = document.createElement('div');
         info.className = 'agent-info';
         const nameDiv = document.createElement('div');
@@ -873,8 +873,11 @@
         case 'complete':
           // Final response — replace streaming buffer with complete content
           hideTyping();
-          if (data.content || streamingBuffer) {
-            finalizeStreamingMessage(data.content || streamingBuffer, data.agentName);
+          {
+            const completeText = data.content || (data.response?.text ?? data.response) || streamingBuffer;
+            if (completeText) {
+              finalizeStreamingMessage(completeText, data.agentName);
+            }
           }
           streamingBuffer = '';
           break;
@@ -945,8 +948,11 @@
         case 'resume-active':
         case 'pending-completion':
           // Resume scenarios — show the content if present
-          if (data.content) {
-            addMessage('assistant', data.content, data.agentName);
+          {
+            const resumeText = data.content || (data.response?.text ?? data.response);
+            if (resumeText) {
+              addMessage('assistant', resumeText, data.agentName);
+            }
           }
           break;
 
@@ -1015,6 +1021,10 @@
       autoResize(input);
       showTyping();
 
+      // Disable send button during processing
+      const sendBtn = document.getElementById('sendBtn');
+      if (sendBtn) sendBtn.disabled = true;
+
       // Send via WebSocket
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({
@@ -1024,6 +1034,10 @@
           conversationId: conversationId,
           channel: 'webchat'
         }));
+      } else {
+        hideTyping();
+        if (sendBtn) sendBtn.disabled = false;
+        addMessage('system', 'Connection lost. Reconnecting...');
       }
     }
 
@@ -1060,11 +1074,19 @@
       if (!text) return '';
       // Escape HTML first to prevent XSS, then apply safe markdown
       let safe = escapeHtml(text);
-      return safe
-        .replace(/```(\w*)\n?([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
+      // Extract code blocks, apply <br> only outside them, then restore
+      const blocks = [];
+      safe = safe.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) => {
+        blocks.push('<pre><code>' + code + '</code></pre>');
+        return '\x00CODEBLOCK' + (blocks.length - 1) + '\x00';
+      });
+      safe = safe
         .replace(/`([^`]+)`/g, '<code>$1</code>')
         .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
         .replace(/\n/g, '<br>');
+      // Restore code blocks
+      safe = safe.replace(/\x00CODEBLOCK(\d+)\x00/g, (_, i) => blocks[i]);
+      return safe;
     }
 
     function showTyping() {
@@ -1073,6 +1095,9 @@
 
     function hideTyping() {
       document.getElementById('typingIndicator').classList.remove('active');
+      // Re-enable send button
+      const sendBtn = document.getElementById('sendBtn');
+      if (sendBtn) sendBtn.disabled = false;
       // Reset progress state
       const detail = document.getElementById('typingDetail');
       const bar = document.getElementById('progressBar');
@@ -1162,11 +1187,11 @@
     // ═══════════════════════════════════════════════════════
     function openSettings() {
       document.getElementById('settingsModal').classList.add('active');
-      // Load current settings
-      fetch('/api/config').then(r => r.json()).then(config => {
-        document.getElementById('defaultModel').value = config.agent?.model || '';
-        document.getElementById('claudePath').value = config.agent?.claudePath || '';
-      }).catch(() => {});
+      // Populate API key from localStorage if previously saved
+      const savedKey = localStorage.getItem('anuki_api_key');
+      if (savedKey) {
+        document.getElementById('apiKey').value = savedKey;
+      }
     }
 
     function closeSettings() {
@@ -1182,9 +1207,12 @@
       closeSettings();
     }
 
-    // Close modal on overlay click
+    // Close modal on overlay click or Escape key
     document.getElementById('settingsModal').addEventListener('click', (e) => {
       if (e.target === e.currentTarget) closeSettings();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeSettings();
     });
 
     // Start

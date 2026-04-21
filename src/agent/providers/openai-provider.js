@@ -378,7 +378,7 @@ class OpenAIProvider extends BaseProvider {
     const fakeProcess = {
       stdout,
       stderr,
-      pid: process.pid,
+      pid: -1,  // Sentinel value — never matches server PID (prevents self-kill in executor orphan cleanup)
       killed: false,
       _req: null,
       kill(signal) {

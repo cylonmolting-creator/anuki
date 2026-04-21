@@ -88,20 +88,9 @@ class Security {
       return false;
     }
 
-    // Check with and without port
+    // Exact match only (no port stripping — prevents http://localhost:9999 bypassing http://localhost allowlist)
     const normalized = origin.replace(/\/$/, '');
-
-    if (this.allowedOrigins.has(normalized)) {
-      return true;
-    }
-
-    // Check without port
-    const withoutPort = normalized.replace(/:\d+$/, '');
-    if (this.allowedOrigins.has(withoutPort)) {
-      return true;
-    }
-
-    return false;
+    return this.allowedOrigins.has(normalized);
   }
 
   /**

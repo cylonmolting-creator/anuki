@@ -11,7 +11,7 @@
  * This module eliminates dependency on a single provider.
  */
 
-const { execSync } = require('child_process');
+const { execSync, execFileSync } = require('child_process');
 
 class ModelResolver {
   constructor(config = {}, logger) {
@@ -322,25 +322,17 @@ class ModelResolver {
     const tools = options.tools || 'Bash,Read,Write,Edit,WebFetch';
 
     const fullPrompt = systemPrompt + '\n\n' + userMessage;
-    const escaped = fullPrompt
-      .replace(/\\/g, '\\\\')
-      .replace(/"/g, '\\"')
-      .replace(/\n/g, '\\n')
-      .replace(/`/g, '\\`')
-      .replace(/\$/g, '\\$');
 
-    // Use specific model via claude CLI
-    const modelFlag = '--model ' + provider.model;
-
-    const result = execSync(
-      'echo "' + escaped + '" | claude -p ' + modelFlag + ' --allowedTools "' + tools + '" 2>/dev/null',
-      {
-        encoding: 'utf8',
-        timeout: options.timeout || 120000,
-        maxBuffer: 10 * 1024 * 1024,
-        env: { ...process.env, HOME: require('os').homedir() }
-      }
-    ).trim();
+    // Use execFileSync with argument array to prevent shell injection
+    const args = ['-p', '--model', provider.model, '--allowedTools', tools];
+    const result = execFileSync('claude', args, {
+      input: fullPrompt,
+      encoding: 'utf8',
+      timeout: options.timeout || 120000,
+      maxBuffer: 10 * 1024 * 1024,
+      env: { ...process.env, HOME: require('os').homedir() },
+      stdio: ['pipe', 'pipe', 'ignore']
+    }).trim();
 
     // Estimate token usage (rough approximation)
     const inputTokens = Math.ceil(fullPrompt.length / 4);

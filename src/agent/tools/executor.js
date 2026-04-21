@@ -2,7 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
+const { execSync, spawnSync } = require('child_process');
 
 /**
  * Tool Executor — Secure tool execution for non-CLI LLM providers.
@@ -261,33 +261,42 @@ function toolGrep(args, workspaceDir) {
   if (!searchDir.valid) return { success: false, error: searchDir.error };
 
   try {
-    let cmd;
-    const safePattern = pattern.replace(/'/g, "'\\''");
-    const contextFlag = context ? `-C ${Math.min(context, 10)}` : '';
-    const includeFlag = include ? `--include='${include.replace(/'/g, "'\\''")}'` : '';
+    // Use spawnSync with argument arrays to prevent shell injection
+    let result;
+    const contextNum = context ? Math.min(context, 10) : 0;
 
     // Try rg first, fall back to grep
-    try {
-      execSync('which rg', { stdio: 'pipe' });
-      const rgInclude = include ? `--glob '${include.replace(/'/g, "'\\''")}'` : '';
-      const rgContext = context ? `-C ${Math.min(context, 10)}` : '';
-      cmd = `rg -n ${rgContext} ${rgInclude} '${safePattern}' '${searchDir.resolved}' 2>/dev/null | head -200`;
-    } catch {
-      cmd = `grep -rn ${contextFlag} ${includeFlag} '${safePattern}' '${searchDir.resolved}' 2>/dev/null | head -200`;
+    const whichRg = spawnSync('which', ['rg'], { stdio: 'pipe' });
+    if (whichRg.status === 0) {
+      const args = ['-n'];
+      if (contextNum) args.push('-C', String(contextNum));
+      if (include) args.push('--glob', include);
+      args.push(pattern, searchDir.resolved);
+      const rg = spawnSync('rg', args, {
+        cwd: workspaceDir,
+        timeout: 30000,
+        maxBuffer: 2 * 1024 * 1024,
+        encoding: 'utf-8'
+      });
+      result = (rg.stdout || '').split('\n').slice(0, 200).join('\n');
+      if (rg.status > 1) return { success: false, error: `Grep error: ${(rg.stderr || '').substring(0, 500)}` };
+    } else {
+      const args = ['-rn'];
+      if (contextNum) args.push(`-C${contextNum}`);
+      if (include) args.push(`--include=${include}`);
+      args.push(pattern, searchDir.resolved);
+      const grepResult = spawnSync('grep', args, {
+        cwd: workspaceDir,
+        timeout: 30000,
+        maxBuffer: 2 * 1024 * 1024,
+        encoding: 'utf-8'
+      });
+      result = (grepResult.stdout || '').split('\n').slice(0, 200).join('\n');
+      if (grepResult.status > 1) return { success: false, error: `Grep error: ${(grepResult.stderr || '').substring(0, 500)}` };
     }
 
-    const result = execSync(cmd, {
-      cwd: workspaceDir,
-      timeout: 30000,
-      maxBuffer: 2 * 1024 * 1024,
-      encoding: 'utf-8'
-    });
-
-    return { success: true, output: result || '(no matches found)' };
+    return { success: true, output: result.trim() || '(no matches found)' };
   } catch (err) {
-    if (err.status === 1 && !err.stderr) {
-      return { success: true, output: '(no matches found)' };
-    }
     return { success: false, error: `Grep error: ${(err.message || '').substring(0, 500)}` };
   }
 }
@@ -307,16 +316,20 @@ function toolGlob(args, workspaceDir) {
   if (!searchDir.valid) return { success: false, error: searchDir.error };
 
   try {
-    // Use find command with pattern matching (cross-platform)
-    const safePattern = pattern.replace(/'/g, "'\\''");
-    const cmd = `find '${searchDir.resolved}' -name '${safePattern}' -not -path '*/node_modules/*' -not -path '*/.git/*' 2>/dev/null | head -500`;
-
-    const result = execSync(cmd, {
+    // Use spawnSync with argument array to prevent shell injection
+    const findResult = spawnSync('find', [
+      searchDir.resolved,
+      '-name', pattern,
+      '-not', '-path', '*/node_modules/*',
+      '-not', '-path', '*/.git/*'
+    ], {
       cwd: workspaceDir,
       timeout: 15000,
       maxBuffer: 1024 * 1024,
       encoding: 'utf-8'
     });
+
+    const result = (findResult.stdout || '').split('\n').slice(0, 500).join('\n');
 
     if (!result.trim()) {
       return { success: true, output: '(no files matched)' };

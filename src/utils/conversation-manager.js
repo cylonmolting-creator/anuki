@@ -176,7 +176,7 @@ class ConversationManager {
 
     // LAYER 1: Extract and delete images from this conversation
     if (conv && conv.messages) {
-      const uploadsDir = path.join(this.baseDir, 'data', 'uploads');
+      const uploadsDir = path.resolve(path.join(this.baseDir, 'data', 'uploads'));
       conv.messages.forEach(msg => {
         if (msg.content) {
           // Find all image paths in message content [Image: /path/to/file.png]
@@ -184,9 +184,12 @@ class ConversationManager {
           if (imageMatches) {
             imageMatches.forEach(match => {
               const imagePath = match.replace('[Image: ', '').replace(']', '');
+              // Security: only delete files within uploadsDir (prevent arbitrary file deletion)
+              const resolved = path.resolve(imagePath);
+              if (!resolved.startsWith(uploadsDir + path.sep) && resolved !== uploadsDir) return;
               try {
-                if (fs.existsSync(imagePath)) {
-                  fs.unlinkSync(imagePath);
+                if (fs.existsSync(resolved)) {
+                  fs.unlinkSync(resolved);
                 }
               } catch (e) {
                 // Ignore if file already deleted

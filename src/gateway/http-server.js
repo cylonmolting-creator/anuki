@@ -36,10 +36,15 @@ class HTTPServer {
 
     // Middleware
     // Performance profiling: HTTP request parsing (roadmap 10.3)
-    const jsonParserWithTiming = express.json();
+    const jsonParserWithTiming = express.json({ limit: '1mb' });
     this.app.use((req, res, next) => {
       const parseStart = Date.now();
-      jsonParserWithTiming(req, res, () => {
+      jsonParserWithTiming(req, res, (err) => {
+        if (err) {
+          // Body-parser error (413 entity too large, 400 malformed JSON, etc.)
+          const status = err.status || 400;
+          return res.status(status).json({ error: err.message || 'Invalid request body' });
+        }
         const parseDuration = Date.now() - parseStart;
         // Record HTTP parse latency
         if (this.agentExecutor && this.agentExecutor.performanceProfiler && req.method === 'POST') {
@@ -79,7 +84,9 @@ class HTTPServer {
     const storage = multer.diskStorage({
       destination: (req, file, cb) => cb(null, this.uploadsDir),
       filename: (req, file, cb) => {
-        const uniqueName = `${Date.now()}-${file.originalname}`;
+        // Sanitize original filename to prevent path traversal
+        const safeName = (file.originalname || 'upload').replace(/[^a-zA-Z0-9._-]/g, '_');
+        const uniqueName = `${Date.now()}-${safeName}`;
         cb(null, uniqueName);
       }
     });
@@ -131,7 +138,17 @@ class HTTPServer {
     this._setupRoutes();
     this._setupTracingRoutes(); // Roadmap 10.1: Request tracing endpoints
 
-    // Catch-all 404 for unknown /api/* routes — return JSON, not Express HTML
+    // NOTE: Catch-all 404 is NOT registered here — it must be registered AFTER
+    // index.js adds its additional routes (memory, cron, active-jobs, etc.).
+    // Call httpServer.finalize() from index.js after all routes are added.
+  }
+
+  /**
+   * Register the catch-all 404 handler. MUST be called AFTER all routes are added.
+   * This ensures routes added in index.js (memory, cron, watchdog, active-jobs)
+   * are reachable and not shadowed by the 404 middleware.
+   */
+  finalize() {
     this.app.use('/api', (req, res) => {
       res.status(404).json({ error: 'Not found', path: req.path });
     });
@@ -634,7 +651,7 @@ class HTTPServer {
 
         res.json({
           success: true,
-          path: imagePath,
+          path: `/uploads/${req.file.filename}`,
           filename: req.file.filename,
           size: req.file.size
         });
@@ -2520,6 +2537,8 @@ class HTTPServer {
           sessionId
         });
         this.agentExecutor._saveSessions();
+        const ip = req.ip || req.socket.remoteAddress || 'unknown';
+        this.logger.warn('HTTP', `Session inject: workspace=${workspaceId} conv=${conversationId} session=${sessionId} ip=${ip}`);
         res.json({ success: true, key, sessionId });
       } catch (err) {
         this.logger.error('HTTP', `Session inject error: ${err.message}`);
@@ -2892,6 +2911,7 @@ class HTTPServer {
    * @private
    */
   _generateTraceGraph(trace) {
+    const esc = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     const baseUrl = trace.metadata?.path || 'request';
     const duration = trace.duration || 0;
 
@@ -2900,7 +2920,7 @@ class HTTPServer {
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Trace: ${trace.requestId}</title>
+  <title>Trace: ${esc(trace.requestId)}</title>
   <style>
     body { font-family: monospace; margin: 20px; }
     .header { background: #f0f0f0; padding: 10px; margin-bottom: 20px; border-radius: 4px; }
@@ -2919,10 +2939,10 @@ class HTTPServer {
 <body>
   <div class="header">
     <h2>Request Trace</h2>
-    <p><strong>ID:</strong> ${trace.requestId}</p>
-    <p><strong>Source:</strong> ${trace.source} | <strong>Status:</strong> ${trace.status}</p>
+    <p><strong>ID:</strong> ${esc(trace.requestId)}</p>
+    <p><strong>Source:</strong> ${esc(trace.source)} | <strong>Status:</strong> ${esc(trace.status)}</p>
     <p><strong>Duration:</strong> ${duration}ms | <strong>Started:</strong> ${new Date(trace.startTime).toISOString()}</p>
-    <p><strong>Path:</strong> ${baseUrl}</p>
+    <p><strong>Path:</strong> ${esc(baseUrl)}</p>
   </div>
 
   <div class="timeline">
@@ -2930,10 +2950,10 @@ class HTTPServer {
     ${trace.callStack.map((call, idx) => `
       <div class="call ${call.status}">
         <div class="call-header">
-          <span>[${idx + 1}] ${call.layer}/${call.action}</span>
+          <span>[${idx + 1}] ${esc(call.layer)}/${esc(call.action)}</span>
           <span class="call-time">${call.duration || 0}ms</span>
         </div>
-        ${call.error ? `<div class="call-error">Error: ${call.error}</div>` : ''}
+        ${call.error ? `<div class="call-error">Error: ${esc(call.error)}</div>` : ''}
       </div>
     `).join('')}
   </div>
@@ -2944,7 +2964,7 @@ class HTTPServer {
       ${trace.children.map(child => `
         <div class="call ${child.status}">
           <div class="call-header">
-            <span>${child.requestId.substring(0, 8)}</span>
+            <span>${esc(String(child.requestId).substring(0, 8))}</span>
             <span class="call-time">${child.duration || 0}ms</span>
           </div>
         </div>

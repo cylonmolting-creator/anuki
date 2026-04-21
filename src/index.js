@@ -498,7 +498,10 @@ async function main() {
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
 
-    // ═══════════════════════════════════════════════════════
+    // Register catch-all 404 AFTER all routes are added (fixes dead route bug)
+    httpServer.finalize();
+
+    //═══════════════════════════════════════════════════════
     // Start HTTP server
     // ═══════════════════════════════════════════════════════
 
@@ -515,6 +518,7 @@ async function main() {
     agentExecutor.wsServer = wsServer;
     messageRouter.wsServer = wsServer;
     httpServer.wsServer = wsServer;
+    wsServer.security = security;
 
     // WebChat channel (always active)
     const WebChat = require('./channels/webchat');
@@ -571,6 +575,10 @@ async function gracefulShutdown(signal) {
 
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+// SIGUSR2: ignore to prevent accidental termination (Node.js default = terminate)
+process.on('SIGUSR2', () => {
+  console.log('[SIGNAL] SIGUSR2 received — ignored (use SIGTERM for graceful shutdown)');
+});
 process.on('uncaughtException', (err) => {
   console.error('Uncaught exception:', err);
 });
