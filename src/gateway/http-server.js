@@ -1,4 +1,5 @@
 const express = require('express');
+const helmet = require('helmet');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -33,6 +34,11 @@ class HTTPServer {
     this.app = express();
     this.requestTracer = new RequestTracer(logger); // Roadmap 10.1: Request tracing
     this._initializeSkillValidators();
+
+    // Security headers (clickjacking, MIME sniffing, XSS filter, etc.)
+    this.app.use(helmet({
+      contentSecurityPolicy: false, // CSP disabled — inline scripts in single-file UI
+    }));
 
     // Middleware
     // Performance profiling: HTTP request parsing (roadmap 10.3)
@@ -2473,6 +2479,13 @@ class HTTPServer {
       if (!id) return res.status(400).json({ error: 'Webhook id required' });
       if (id.length > 64 || !/^[a-zA-Z0-9_-]+$/.test(id)) {
         return res.status(400).json({ error: 'Invalid webhook id (alphanumeric, max 64 chars)' });
+      }
+      // SSRF protection: validate forwardUrl before storing
+      if (forwardUrl && this.security) {
+        const urlCheck = this.security.validateWebhookUrl(forwardUrl);
+        if (!urlCheck.valid) {
+          return res.status(400).json({ error: urlCheck.reason });
+        }
       }
       const hook = this.webhookManager.create(id, { description: description || '', forwardUrl: forwardUrl || null });
       res.json(hook);

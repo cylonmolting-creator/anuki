@@ -408,6 +408,32 @@
       box-shadow: none;
     }
 
+    .send-btn.cancel-mode {
+      background: linear-gradient(135deg, var(--error) 0%, #b91c1c 100%);
+      box-shadow: 0 2px 8px rgba(239,68,68,0.3);
+      opacity: 1;
+      cursor: pointer;
+    }
+
+    .send-btn.cancel-mode:hover {
+      background: linear-gradient(135deg, #f87171 0%, var(--error) 100%);
+      box-shadow: 0 4px 16px rgba(239,68,68,0.4);
+      transform: translateY(-1px);
+    }
+
+    .reconnect-banner {
+      display: none;
+      padding: 8px 16px;
+      background: linear-gradient(90deg, rgba(245,158,11,0.15) 0%, rgba(245,158,11,0.05) 100%);
+      border-bottom: 1px solid rgba(245,158,11,0.25);
+      color: var(--warning);
+      font-size: 13px;
+      text-align: center;
+      font-weight: 500;
+    }
+
+    .reconnect-banner.active { display: block; }
+
     /* Settings Modal */
     .modal-overlay {
       display: none;
@@ -617,11 +643,12 @@
     <main class="main">
       <div class="chat-header">
         <button class="mobile-menu-btn" onclick="document.querySelector('.sidebar').classList.toggle('open')">&#9776;</button>
-        <div class="agent-dot" id="headerDot" style="background: var(--accent)"></div>
-        <span class="agent-name" id="headerName">PROTOS</span>
-        <span class="status" id="headerStatus">online</span>
+        <div class="agent-dot" id="headerDot" style="background: var(--text-dim)"></div>
+        <span class="agent-name" id="headerName">Loading...</span>
+        <span class="status" id="headerStatus">connecting</span>
       </div>
 
+      <div class="reconnect-banner" id="reconnectBanner">Connection lost. Reconnecting...</div>
       <div class="messages" id="messages">
         <div class="welcome">
           <h2>Welcome to Anuki</h2>
@@ -646,8 +673,9 @@
             onkeydown="handleKeyDown(event)"
             oninput="autoResize(this)"
           ></textarea>
-          <button class="send-btn" id="sendBtn" onclick="sendMessage()">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2L15 22L11 13L2 9L22 2Z"/></svg>
+          <button class="send-btn" id="sendBtn" onclick="handleSendClick()">
+            <svg class="send-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2L15 22L11 13L2 9L22 2Z"/></svg>
+            <svg class="cancel-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="display:none"><path d="M18 6L6 18"/><path d="M6 6L18 18"/></svg>
           </button>
         </div>
       </div>
@@ -697,9 +725,16 @@
         renderAgentList();
         // Select default agent
         const defaultAgent = agents.find(a => a.isDefault) || agents[0];
-        if (defaultAgent) selectAgent(defaultAgent.id);
+        if (defaultAgent) {
+          selectAgent(defaultAgent.id);
+        } else {
+          document.getElementById('headerName').textContent = 'Anuki';
+          document.getElementById('headerStatus').textContent = 'no agents';
+        }
       } catch (e) {
         console.error('Failed to load agents:', e);
+        document.getElementById('headerName').textContent = 'Anuki';
+        document.getElementById('headerStatus').textContent = 'offline';
       }
     }
 
@@ -711,6 +746,13 @@
     function renderAgentList() {
       const list = document.getElementById('agentList');
       list.innerHTML = '';
+      if (agents.length === 0) {
+        const empty = document.createElement('li');
+        empty.style.cssText = 'padding:16px 12px;color:var(--text-dim);font-size:13px;text-align:center;';
+        empty.textContent = 'No agents yet \u2014 create one with ENKI!';
+        list.appendChild(empty);
+        return;
+      }
       agents.forEach(a => {
         const li = document.createElement('li');
         li.className = `agent-item ${currentAgent === a.id ? 'active' : ''}`;
@@ -792,6 +834,8 @@
       ws.onopen = () => {
         console.log('WebSocket connected');
         document.getElementById('headerStatus').textContent = 'online';
+        document.getElementById('reconnectBanner').classList.remove('active');
+        document.getElementById('messageInput').disabled = false;
         wsReconnectDelay = 1000;
         wsReconnectAttempts = 0;
 
@@ -811,9 +855,12 @@
       };
 
       ws.onclose = () => {
+        document.getElementById('reconnectBanner').classList.add('active');
+        document.getElementById('messageInput').disabled = true;
         wsReconnectAttempts++;
         if (wsReconnectAttempts > 50) {
           document.getElementById('headerStatus').textContent = 'offline';
+          document.getElementById('reconnectBanner').textContent = 'Connection lost. Please refresh the page.';
           return;
         }
         const inFastPoll = Date.now() < _fastPollWindowEnd;
@@ -1021,10 +1068,6 @@
       autoResize(input);
       showTyping();
 
-      // Disable send button during processing
-      const sendBtn = document.getElementById('sendBtn');
-      if (sendBtn) sendBtn.disabled = true;
-
       // Send via WebSocket
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({
@@ -1036,7 +1079,6 @@
         }));
       } else {
         hideTyping();
-        if (sendBtn) sendBtn.disabled = false;
         addMessage('system', 'Connection lost. Reconnecting...');
       }
     }
@@ -1091,13 +1133,12 @@
 
     function showTyping() {
       document.getElementById('typingIndicator').classList.add('active');
+      enterCancelMode();
     }
 
     function hideTyping() {
       document.getElementById('typingIndicator').classList.remove('active');
-      // Re-enable send button
-      const sendBtn = document.getElementById('sendBtn');
-      if (sendBtn) sendBtn.disabled = false;
+      exitCancelMode();
       // Reset progress state
       const detail = document.getElementById('typingDetail');
       const bar = document.getElementById('progressBar');
@@ -1165,6 +1206,45 @@
       const s = Math.floor(ms / 1000);
       if (s < 60) return s + 's';
       return Math.floor(s / 60) + 'm ' + (s % 60) + 's';
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // Cancel / Send toggle
+    // ═══════════════════════════════════════════════════════
+    let isProcessing = false;
+
+    function handleSendClick() {
+      if (isProcessing) {
+        cancelRequest();
+      } else {
+        sendMessage();
+      }
+    }
+
+    function cancelRequest() {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'abort', workspaceId: currentAgent }));
+      }
+      hideTyping();
+      streamingBuffer = '';
+    }
+
+    function enterCancelMode() {
+      isProcessing = true;
+      const btn = document.getElementById('sendBtn');
+      btn.classList.add('cancel-mode');
+      btn.disabled = false;
+      btn.querySelector('.send-icon').style.display = 'none';
+      btn.querySelector('.cancel-icon').style.display = 'block';
+    }
+
+    function exitCancelMode() {
+      isProcessing = false;
+      const btn = document.getElementById('sendBtn');
+      btn.classList.remove('cancel-mode');
+      btn.disabled = false;
+      btn.querySelector('.send-icon').style.display = 'block';
+      btn.querySelector('.cancel-icon').style.display = 'none';
     }
 
     // ═══════════════════════════════════════════════════════

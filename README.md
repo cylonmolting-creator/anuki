@@ -387,7 +387,7 @@ anuki/
 │   │   ├── cognitive.js       # 3-tier memory with TF-IDF indexing
 │   │   └── reflection.js      # Nightly memory distillation
 │   ├── gateway/
-│   │   ├── http-server.js     # REST API (50+ endpoints)
+│   │   ├── http-server.js     # REST API (110+ endpoints)
 │   │   ├── websocket-server.js    # Streaming chat, resume support
 │   │   └── cron.js            # Scheduled jobs (reflection, decay, cleanup)
 │   ├── channels/              # WebChat (extensible to Telegram, Discord, etc.)
@@ -400,7 +400,7 @@ anuki/
 └── data/                      # Runtime state (agents, jobs, conversations)
 ```
 
-**By the numbers**: 58 source files, ~26K lines of JavaScript, 7 dependencies.
+**By the numbers**: 58 source files, ~26K lines of JavaScript, 8 dependencies.
 
 ### Boot Sequence
 
@@ -425,7 +425,7 @@ POST /api/safe-restart            # Request graceful restart (queued if agents a
 GET  /api/safe-restart/status     # Check whether a queued restart has already fired
 ```
 
-Full API: 100+ REST endpoints covering agents, workspaces, conversations, memory, cron, skills, and inter-agent messaging.
+Full API: 110+ REST endpoints covering agents, workspaces, conversations, memory, cron, skills, and inter-agent messaging.
 
 ---
 
@@ -529,13 +529,13 @@ Anuki includes 14 layers of session bloat prevention — keeping conversations l
 | 3 | Context guard — 70% warning | `context-guard.js:36` | Warns when token usage hits 70% |
 | 4 | Context guard — 85% compaction | `context-guard.js:37` | Triggers automatic compaction |
 | 5 | Context guard — 95% force truncate | `context-guard.js:38` | Emergency truncation to prevent overflow |
-| 6 | Idle timeout (2h) | `executor.js:17` | Closes inactive sessions after 2 hours |
-| 7 | Daily reset (04:00 UTC) | `executor.js:18` | Automatic session cleanup |
-| 8 | Max turns per call (15) | `executor.js:21` | Prevents runaway agent loops |
-| 9 | Session max turns (30) | `executor.js:1369` | Hard cap on total session turns |
-| 10 | Tool output truncation (30KB) | `executor.js:23` | Large tool outputs trimmed |
-| 11 | Stale session pruning (boot) | `executor.js:325` | Removes expired sessions on startup |
-| 12 | Stale session pruning (runtime) | `executor.js:380` | Continuous cleanup during operation |
+| 6 | Idle timeout (2h) | `executor.js:19` | Closes inactive sessions after 2 hours |
+| 7 | Daily reset (04:00 UTC) | `executor.js:20` | Automatic session cleanup |
+| 8 | Max turns per call (15) | `executor.js:23` | Prevents runaway agent loops |
+| 9 | Session max turns (200) | `executor.js:1558` | Hard cap on total session turns |
+| 10 | Tool output truncation (30KB) | `executor.js:25` | Large tool outputs trimmed |
+| 11 | Stale session pruning (boot) | `executor.js:473` | Removes expired sessions on startup |
+| 12 | Stale session pruning (runtime) | `executor.js:528` | Continuous cleanup during operation |
 | 13 | Memory decay | `cron.js` | Old memories gradually fade |
 | 14 | Nightly reflection | `reflection.js` | Distills episodic → semantic memory |
 

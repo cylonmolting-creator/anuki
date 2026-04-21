@@ -101,6 +101,54 @@ class Security {
     this.log('Added allowed origin: ' + origin);
   }
 
+  /**
+   * Validate webhook forward URL — SSRF protection
+   * Returns { valid: true } or { valid: false, reason: string }
+   */
+  validateWebhookUrl(urlStr) {
+    if (!urlStr) return { valid: true }; // null/undefined = no forwarding, OK
+
+    let parsed;
+    try {
+      parsed = new URL(urlStr);
+    } catch {
+      return { valid: false, reason: 'Invalid URL format' };
+    }
+
+    // Protocol whitelist
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return { valid: false, reason: 'Only http:// and https:// URLs are allowed' };
+    }
+
+    // Block private/reserved IPs and localhost
+    const host = parsed.hostname.toLowerCase();
+    if (host === 'localhost' || host === '[::1]') {
+      return { valid: false, reason: 'Localhost URLs are not allowed' };
+    }
+
+    // IPv4 private ranges
+    const ipv4Match = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+    if (ipv4Match) {
+      const [, a, b] = ipv4Match.map(Number);
+      if (a === 127 ||                        // 127.0.0.0/8 loopback
+          a === 10 ||                          // 10.0.0.0/8 private
+          (a === 172 && b >= 16 && b <= 31) || // 172.16.0.0/12 private
+          (a === 192 && b === 168) ||          // 192.168.0.0/16 private
+          (a === 169 && b === 254) ||          // 169.254.0.0/16 link-local / cloud metadata
+          a === 0) {                           // 0.0.0.0/8
+        return { valid: false, reason: 'Private/reserved IP addresses are not allowed' };
+      }
+    }
+
+    // Block cloud metadata hostnames
+    const blockedHosts = ['metadata.google.internal', 'metadata.internal'];
+    if (blockedHosts.includes(host)) {
+      return { valid: false, reason: 'Cloud metadata endpoints are not allowed' };
+    }
+
+    return { valid: true };
+  }
+
   // ═══════════════════════════════════════════════════════════════
   // API TOKEN AUTH
   // ═══════════════════════════════════════════════════════════════
