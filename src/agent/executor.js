@@ -9,6 +9,7 @@ const { atomicWriteFileSync } = require('../utils/atomic-write');
 const BASE_DIR = require('../utils/base-dir');
 const { createProvider, getAvailableProviders, validateAllProviders } = require('./providers');
 const { getToolDefinitions } = require('./tools');
+const { sanitizeForLog } = require('../utils/helpers');
 
 // Soul file cache (5-min TTL)
 const SOUL_CACHE_TTL = 300000; // 5 minutes
@@ -28,14 +29,6 @@ const ACTIVE_JOBS_FILE = path.join(BASE_DIR, 'data', 'active-jobs.json');
 const RESUME_HISTORY_FILE = path.join(BASE_DIR, 'data', 'resume-history.json');
 const PENDING_COMPLETIONS_FILE = path.join(BASE_DIR, 'data', 'pending-completions.json');
 const MAX_RESUME_PER_CONVERSATION = 25; // Circuit breaker: max resumes per conversation (raised from 10 — long-running agent-to-agent chains need more)
-
-// Log sanitization — prevent log injection via newlines and control chars
-function sanitizeForLog(input, maxLen = 200) {
-  if (typeof input !== 'string') return String(input);
-  // Strip control chars (newlines, tabs, null bytes, etc.) to prevent log line injection
-  const sanitized = input.replace(/[\x00-\x1f\x7f]/g, ' ').trim();
-  return sanitized.length > maxLen ? sanitized.substring(0, maxLen) + '...' : sanitized;
-}
 
 // Active job cleanup (roadmap 2.3)
 const MAX_ACTIVE_JOB_AGE_MS = 3600000; // 1 hour — jobs older than this are discarded on boot

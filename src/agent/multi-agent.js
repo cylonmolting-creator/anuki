@@ -307,7 +307,7 @@ class MultiAgentRouter {
   }
 
   _generateId() {
-    return 'rule_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
+    return 'rule_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6);
   }
 
   _loadAgents() {

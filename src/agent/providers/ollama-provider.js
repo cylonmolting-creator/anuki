@@ -2,6 +2,7 @@
 
 const BaseProvider = require('./base-provider');
 const { executeTool } = require('../tools');
+const { tryParseJSON } = require('../../utils/helpers');
 
 /**
  * Ollama Provider — Full Agentic Mode (for supported models)
@@ -463,10 +464,6 @@ class OllamaProvider extends BaseProvider {
       });
     });
   }
-}
-
-function tryParseJSON(str) {
-  try { return JSON.parse(str); } catch { return {}; }
 }
 
 module.exports = OllamaProvider;

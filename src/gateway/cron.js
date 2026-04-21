@@ -383,7 +383,7 @@ class CronManager {
   }
 
   _generateId() {
-    return 'job_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+    return 'job_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8);
   }
 
   _loadJobs() {

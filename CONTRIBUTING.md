@@ -27,7 +27,7 @@ anuki/
 │   ├── memory/
 │   │   └── cognitive.js      — 3-tier memory (episodic/semantic/procedural)
 │   ├── gateway/              — HTTP, WebSocket, cron
-│   ├── channels/             — Telegram, Discord, WebChat, etc.
+│   ├── channels/             — WebChat (extensible to Telegram, Discord, etc.)
 │   └── core/                 — Security, backup, sandbox
 ├── public/                   — Frontend SPA
 ├── scripts/
@@ -67,7 +67,7 @@ See [README.md](README.md#ssot-rule-system--mechanical-governance) for rule form
 
 Each agent has soul files in `workspace/<id>/soul/`. When modifying soul files:
 
-- Maintain the 7-type structure (IDENTITY, SOUL, MISSION, TOOLS, CODE_PROTOCOL, PROMPT_PROFILE, SAFETY)
+- Core types: IDENTITY, SOUL, MISSION, TOOLS, CODE_PROTOCOL, PROMPT_PROFILE, SAFETY, AGENTS (optional: FAILURE_RECOVERY, first_prompt.txt)
 - Keep files focused and concise
 - Test with a real agent conversation
 

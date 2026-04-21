@@ -1,14 +1,7 @@
 const { v4: uuidv4 } = require('uuid');
 const fs = require('fs');
 const path = require('path');
-
-// Log sanitization — prevent log injection via newlines and control chars
-function sanitizeForLog(input, maxLen = 200) {
-  if (typeof input !== 'string') return String(input);
-  // Strip control chars (newlines, tabs, null bytes, etc.) to prevent log line injection
-  const sanitized = input.replace(/[\x00-\x1f\x7f]/g, ' ').trim();
-  return sanitized.length > maxLen ? sanitized.substring(0, maxLen) + '...' : sanitized;
-}
+const { sanitizeForLog } = require('../utils/helpers');
 
 /**
  * MessageRouter - Inter-Agent Communication Manager

@@ -3,6 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execSync, spawnSync } = require('child_process');
+const { tryParseJSON } = require('../../utils/helpers');
 
 /**
  * Tool Executor — Secure tool execution for non-CLI LLM providers.
@@ -449,13 +450,6 @@ function executeTool(name, args, context) {
     }
     return { success: false, error: `Tool execution failed: ${err.message}` };
   }
-}
-
-/**
- * Try parsing a JSON string, return object or empty object.
- */
-function tryParseJSON(str) {
-  try { return JSON.parse(str); } catch { return {}; }
 }
 
 /**

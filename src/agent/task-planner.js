@@ -1,4 +1,5 @@
 const { v4: uuidv4 } = require('uuid');
+const { sanitizeForLog } = require('../utils/helpers');
 
 /**
  * TaskPlanner — Multi-Agent Task Planning & Execution
@@ -16,12 +17,6 @@ const { v4: uuidv4 } = require('uuid');
  * - HTTP: POST /api/tasks/plan { task: "...", strategy: "parallel" }
  * - Tool tag: [TASK_PLAN:description]
  */
-
-// Sanitize for log output
-function sanitizeForLog(input, maxLen = 200) {
-  if (typeof input !== 'string') return String(input);
-  return input.replace(/[\x00-\x1f\x7f]/g, ' ').trim().substring(0, maxLen);
-}
 
 class TaskPlanner {
   constructor(options = {}) {

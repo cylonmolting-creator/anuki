@@ -3,6 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Anuki — AI Agent LEGO Platform. Build your own multi-agent team with soul files and cognitive memory.">
+  <meta name="theme-color" content="#c9a84c">
   <title>Anuki — The Agent Civilization</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 80'%3E%3Cpath d='M8,40 Q24,18 40,18 Q56,18 72,40 Q56,62 40,62 Q24,62 8,40 Z' fill='none' stroke='%23c9a84c' stroke-width='2'/%3E%3Ccircle cx='40' cy='40' r='13' fill='%23c9a84c'/%3E%3Ccircle cx='40' cy='40' r='6' fill='%230a0a0f'/%3E%3Ccircle cx='43' cy='37' r='2' fill='%23f0e6c0' opacity='0.9'/%3E%3C/svg%3E">
   <style>
@@ -476,7 +478,7 @@
       margin-bottom: 6px;
     }
 
-    .form-group input, .form-group select {
+    .form-group input {
       width: 100%;
       background: var(--bg);
       border: 1px solid var(--border);
@@ -574,11 +576,19 @@
       transition: width 0.5s ease;
     }
 
-    /* Scrollbar */
+    /* Focus indicator for keyboard navigation (WCAG 2.4.7) */
+    .agent-item:focus, .btn-cancel:focus, .send-btn:focus, .settings-icon:focus {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    /* Scrollbar — webkit */
     ::-webkit-scrollbar { width: 5px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: rgba(201,168,76,0.15); border-radius: 5px; }
     ::-webkit-scrollbar-thumb:hover { background: rgba(201,168,76,0.3); }
+    /* Scrollbar — Firefox */
+    * { scrollbar-width: thin; scrollbar-color: rgba(201,168,76,0.15) transparent; }
 
     /* Mobile menu button */
     .mobile-menu-btn {
@@ -686,7 +696,7 @@
     <div class="modal">
       <h2 id="settingsTitle">Settings</h2>
       <div class="form-group">
-        <label>API Key (BYOK)</label>
+        <label for="apiKey">API Key (BYOK)</label>
         <input type="password" id="apiKey" placeholder="sk-ant-..." />
       </div>
       <p style="color:var(--text-dim);font-size:0.85rem;margin:0.5rem 0;">Model and provider settings are configured in <code>config.json</code>.</p>
@@ -719,6 +729,7 @@
     async function loadAgents() {
       try {
         const res = await fetch('/api/agents');
+        if (!res.ok) throw new Error('Server returned ' + res.status);
         const data = await res.json();
         agents = data.agents || data;
         renderAgentList();
@@ -731,9 +742,9 @@
           document.getElementById('headerStatus').textContent = 'no agents';
         }
       } catch (e) {
-        console.error('Failed to load agents:', e);
         document.getElementById('headerName').textContent = 'Anuki';
         document.getElementById('headerStatus').textContent = 'offline';
+        document.getElementById('headerStatus').title = e.message || 'Connection failed';
       }
     }
 
@@ -851,9 +862,7 @@
         try {
           const data = JSON.parse(event.data);
           handleWSMessage(data);
-        } catch (e) {
-          console.error('WS parse error:', e);
-        }
+        } catch (e) { /* malformed WS message — ignore */ }
       };
 
       ws.onclose = () => {
@@ -876,9 +885,7 @@
         }
       };
 
-      ws.onerror = (e) => {
-        console.error('WS error:', e);
-      };
+      ws.onerror = () => { /* WS error handled by onclose reconnect */ };
     }
 
     function handleWSMessage(data) {
@@ -1271,17 +1278,23 @@
     // ═══════════════════════════════════════════════════════
     // Settings
     // ═══════════════════════════════════════════════════════
+    let _previousFocusEl = null;
     function openSettings() {
+      _previousFocusEl = document.activeElement;
       document.getElementById('settingsModal').classList.add('active');
       // Populate API key from localStorage if previously saved
       const savedKey = localStorage.getItem('anuki_api_key');
       if (savedKey) {
         document.getElementById('apiKey').value = savedKey;
       }
+      // Move focus into modal (WCAG 2.4.3)
+      document.getElementById('apiKey').focus();
     }
 
     function closeSettings() {
       document.getElementById('settingsModal').classList.remove('active');
+      // Restore focus to previously focused element
+      if (_previousFocusEl) { _previousFocusEl.focus(); _previousFocusEl = null; }
     }
 
     function saveSettings() {

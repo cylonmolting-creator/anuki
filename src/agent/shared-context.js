@@ -32,6 +32,10 @@ class SharedContext {
     // In-memory store: namespaceId → { meta, facts }
     this.namespaces = new Map();
 
+    // Debounced persist: collect dirty namespaces, flush every 500ms
+    this._dirtyNamespaces = new Set();
+    this._persistTimer = null;
+
     // Persistence
     const baseDir = options.baseDir || require('../utils/base-dir');
     this.persistDir = path.join(baseDir, 'data', 'shared-contexts');
@@ -299,10 +303,16 @@ class SharedContext {
       clearInterval(this._cleanupInterval);
       this._cleanupInterval = null;
     }
-    // Final persist
-    for (const namespaceId of this.namespaces.keys()) {
-      this._persist(namespaceId);
+    // Cancel pending debounce timer
+    if (this._persistTimer) {
+      clearTimeout(this._persistTimer);
+      this._persistTimer = null;
     }
+    // Final persist — immediate, bypass debounce
+    for (const namespaceId of this.namespaces.keys()) {
+      this._persistImmediate(namespaceId);
+    }
+    this._dirtyNamespaces.clear();
     this._log('SharedContext shutdown');
   }
 
@@ -315,6 +325,14 @@ class SharedContext {
   }
 
   _persist(namespaceId) {
+    // Debounced: mark dirty and schedule flush (500ms coalesce window)
+    this._dirtyNamespaces.add(namespaceId);
+    if (!this._persistTimer) {
+      this._persistTimer = setTimeout(() => this._flushDirty(), 500);
+    }
+  }
+
+  _persistImmediate(namespaceId) {
     const namespace = this.namespaces.get(namespaceId);
     if (!namespace) return;
 
@@ -328,6 +346,14 @@ class SharedContext {
     } catch (e) {
       this._log('Persist failed', `${namespaceId}: ${e.message}`);
     }
+  }
+
+  _flushDirty() {
+    this._persistTimer = null;
+    for (const nsId of this._dirtyNamespaces) {
+      this._persistImmediate(nsId);
+    }
+    this._dirtyNamespaces.clear();
   }
 
   _loadFromDisk() {

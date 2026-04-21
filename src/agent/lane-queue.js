@@ -72,7 +72,7 @@ class LaneQueue {
 
     // Create task wrapper with promise
     const taskWrapper = {
-      id: Date.now() + '-' + Math.random().toString(36).substr(2, 9),
+      id: Date.now() + '-' + Math.random().toString(36).substring(2, 11),
       task,
       retries: 0,
       enqueuedAt: Date.now(),
