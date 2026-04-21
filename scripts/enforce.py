@@ -56,6 +56,7 @@ import os
 import re
 import subprocess
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -63,6 +64,40 @@ from pathlib import Path
 BASE = Path(os.environ.get("ENFORCE_BASE", Path(__file__).resolve().parent.parent))
 RULES_FILE = BASE / "rules.json"
 PLUGINS_DIR = BASE / "scripts"
+HOOK_LOG = BASE / "logs" / "hook-decisions.jsonl"
+HOOK_LOG_MAX_BYTES = 10 * 1024 * 1024  # 10MB — truncate when exceeded
+
+
+# ── Decision Logger ──────────────────────────────────────────────────────
+def log_decision(rule_id: str, rule_name: str, event: str, decision: str,
+                 reason: str = "", tool: str = "", target: str = "") -> None:
+    """Append one JSONL entry to hook-decisions.jsonl for every rule evaluation."""
+    try:
+        entry = {
+            "ts": datetime.now(timezone.utc).isoformat(),
+            "rule_id": rule_id,
+            "rule_name": rule_name,
+            "event": event,
+            "decision": decision,  # "block", "allow", "warn", "skip", "inject"
+            "reason": reason[:200] if reason else "",
+            "tool": tool,
+            "target": target[:200] if target else "",
+        }
+        HOOK_LOG.parent.mkdir(parents=True, exist_ok=True)
+        # Size check — truncate if over limit (keep last 50% of file)
+        if HOOK_LOG.exists():
+            try:
+                sz = HOOK_LOG.stat().st_size
+                if sz > HOOK_LOG_MAX_BYTES:
+                    lines = HOOK_LOG.read_text().splitlines()
+                    half = lines[len(lines) // 2:]
+                    HOOK_LOG.write_text("\n".join(half) + "\n")
+            except Exception:
+                pass
+        with open(HOOK_LOG, "a") as f:
+            f.write(json.dumps(entry) + "\n")
+    except Exception:
+        pass  # logging must never break enforcement
 
 
 # ── Emitters ─────────────────────────────────────────────────────────────
@@ -175,11 +210,18 @@ def matches_when(rule: dict, payload: dict) -> bool:
 
 # ── Evaluators ───────────────────────────────────────────────────────────
 def eval_declarative(rule: dict, payload: dict, event: str) -> int:
+    rid = rule.get("id", "?")
+    rname = rule.get("name", "")
+    tool = payload.get("tool_name", "") if isinstance(payload, dict) else ""
+    ti = payload.get("tool_input", {}) if isinstance(payload, dict) else {}
+    target = ti.get("file_path") or ti.get("command", "")[:100] or ""
     if not matches_when(rule, payload):
+        log_decision(rid, rname, event, "allow", "when-not-matched", tool, target)
         return 0
     action = (rule.get("then") or {}).get("action", "allow")
     reason = (rule.get("then") or {}).get("reason") or rule.get("name", "")
     if action == "deny":
+        log_decision(rid, rname, event, "block", reason, tool, target)
         if event == "PreToolUse":
             emit_deny_pretooluse(reason)
             return 1
@@ -189,12 +231,19 @@ def eval_declarative(rule: dict, payload: dict, event: str) -> int:
         emit_additional_context(event, f"WARN [{rule.get('id', '?')}]: {reason}")
         return 0
     if action == "warn":
+        log_decision(rid, rname, event, "warn", reason, tool, target)
         emit_additional_context(event, f"[{rule.get('id', '?')}] {reason}")
         return 0
+    log_decision(rid, rname, event, "allow", "action=allow", tool, target)
     return 0
 
 
 def eval_plugin(rule: dict, payload: dict, event: str, stdin_raw: str) -> int:
+    rid = rule.get("id", "?")
+    rname = rule.get("name", "")
+    tool = payload.get("tool_name", "") if isinstance(payload, dict) else ""
+    ti = payload.get("tool_input", {}) if isinstance(payload, dict) else {}
+    target = ti.get("file_path") or ti.get("command", "")[:100] or ""
     plugin = rule.get("plugin", "").strip()
     if not plugin:
         return 0
@@ -202,6 +251,7 @@ def eval_plugin(rule: dict, payload: dict, event: str, stdin_raw: str) -> int:
     script = PLUGINS_DIR / parts[0]
     args = parts[1:]
     if not script.exists() or not os.access(script, os.X_OK):
+        log_decision(rid, rname, event, "skip", f"plugin not found: {parts[0]}", tool, target)
         return 0
     try:
         proc = subprocess.run(
@@ -212,25 +262,33 @@ def eval_plugin(rule: dict, payload: dict, event: str, stdin_raw: str) -> int:
             timeout=10,
         )
     except subprocess.TimeoutExpired:
+        log_decision(rid, rname, event, "skip", "plugin timeout (10s)", tool, target)
         return 0
+    decision = "block" if proc.returncode == 1 else "allow"
+    log_decision(rid, rname, event, decision, proc.stdout[:200] if proc.stdout else "", tool, target)
     if proc.stdout:
         sys.stdout.write(proc.stdout)
     return proc.returncode
 
 
 def eval_inject(rule: dict, event: str) -> int:
+    rid = rule.get("id", "?")
+    rname = rule.get("name", "")
     target = rule.get("inject", "")
     if not target:
         return 0
-    path = BASE / target
-    if not path.exists():
+    inject_path = BASE / target
+    if not inject_path.exists():
+        log_decision(rid, rname, event, "skip", f"inject file not found: {target}")
         return 0
     try:
-        content = path.read_text()
+        content = inject_path.read_text()
     except Exception:
+        log_decision(rid, rname, event, "skip", f"inject file read error: {target}")
         return 0
     label = rule.get("label", f"=== {target} ===")
     emit_additional_context(event, f"\n{label}\n{content}")
+    log_decision(rid, rname, event, "inject", f"injected {len(content)} chars from {target}")
     return 0
 
 
