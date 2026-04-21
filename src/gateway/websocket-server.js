@@ -193,7 +193,6 @@ class GatewayWebSocketServer {
       connectionId,
       timestamp: new Date().toISOString(),
       serverStartTime: this.startTime,
-      staticHash: this.staticHash,
       isResuming: global.isResumingSession || false,
       activeResumes: activeResumes.length > 0 ? activeResumes : undefined
     });
@@ -243,6 +242,7 @@ class GatewayWebSocketServer {
 
       default:
         this.logger.warn('WebSocket', `Unknown message type: ${message.type}`);
+        this._sendError(ws, `Unknown message type: ${String(message.type || '').substring(0, 50)}`);
     }
   }
 

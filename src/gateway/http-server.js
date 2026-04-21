@@ -40,6 +40,7 @@ class HTTPServer {
     this.baseDir = path.join(__dirname, '../..');
     this.app = express();
     this.requestTracer = new RequestTracer(logger); // Roadmap 10.1: Request tracing
+    this.backupManager = new (require('../core/backup'))(this.baseDir, logger);
     this._initializeSkillValidators();
 
     // Security headers (clickjacking, MIME sniffing, XSS filter, etc.)
@@ -2727,6 +2728,47 @@ class HTTPServer {
       } catch (e) {
         res.status(400).json({ error: e.message });
       }
+    });
+
+    // ═══════════════════════════════════════════════════════════════
+    // BACKUP ROUTES
+    // ═══════════════════════════════════════════════════════════════
+
+    // POST /api/backup/create — Create a new backup archive
+    this.app.post('/api/backup/create', (req, res) => {
+      try {
+        const result = this.backupManager.create({ label: req.body?.label });
+        res.json(result);
+      } catch (e) {
+        res.status(500).json({ error: e.message });
+      }
+    });
+
+    // GET /api/backup/list — List all backups
+    this.app.get('/api/backup/list', (req, res) => {
+      try {
+        res.json({ backups: this.backupManager.list() });
+      } catch (e) {
+        res.status(500).json({ error: e.message });
+      }
+    });
+
+    // GET /api/backup/stats — Backup statistics
+    this.app.get('/api/backup/stats', (req, res) => {
+      try {
+        res.json(this.backupManager.stats());
+      } catch (e) {
+        res.status(500).json({ error: e.message });
+      }
+    });
+
+    // GET /api/backup/:filename — Download a specific backup
+    this.app.get('/api/backup/:filename', (req, res) => {
+      const filePath = this.backupManager.getPath(req.params.filename);
+      if (!filePath) {
+        return res.status(404).json({ error: 'Backup not found' });
+      }
+      res.download(filePath);
     });
   }
 

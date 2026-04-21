@@ -65,18 +65,30 @@ class ConversationManager {
       clearTimeout(this._saveTimer);
       this._saveTimer = null;
     }
-    if (this._cache) this._flushToDisk();
+    if (this._cache) this._flushToDiskSync();
   }
 
-  _flushToDisk() {
+  async _flushToDisk() {
     this._saveTimer = null;
+    if (!this._cache) return;
+    try {
+      const tempFile = this.conversationsFile + '.tmp';
+      await fs.promises.writeFile(tempFile, JSON.stringify(this._cache, null, 2));
+      await fs.promises.rename(tempFile, this.conversationsFile);
+    } catch (e) {
+      this.logger.error('ConversationManager', 'Error saving conversations:', e.message);
+    }
+  }
+
+  // Sync flush for shutdown — must be synchronous (process may exit immediately after)
+  _flushToDiskSync() {
     if (!this._cache) return;
     try {
       const tempFile = this.conversationsFile + '.tmp';
       fs.writeFileSync(tempFile, JSON.stringify(this._cache, null, 2));
       fs.renameSync(tempFile, this.conversationsFile);
     } catch (e) {
-      this.logger.error('ConversationManager', 'Error saving conversations:', e.message);
+      this.logger.error('ConversationManager', 'Error saving conversations (sync):', e.message);
     }
   }
 
@@ -197,7 +209,7 @@ class ConversationManager {
     const data = this.loadConversations();
     const conv = data.conversations.find(c => c.id === conversationId);
 
-    // LAYER 1: Extract and delete images from this conversation
+    // LAYER 1: Extract and delete images from this conversation (async, fire-and-forget)
     if (conv && conv.messages) {
       const uploadsDir = path.resolve(path.join(this.baseDir, 'data', 'uploads'));
       conv.messages.forEach(msg => {
@@ -210,13 +222,7 @@ class ConversationManager {
               // Security: only delete files within uploadsDir (prevent arbitrary file deletion)
               const resolved = path.resolve(imagePath);
               if (!resolved.startsWith(uploadsDir + path.sep) && resolved !== uploadsDir) return;
-              try {
-                if (fs.existsSync(resolved)) {
-                  fs.unlinkSync(resolved);
-                }
-              } catch (e) {
-                // Ignore if file already deleted
-              }
+              fs.promises.unlink(resolved).catch(() => {});
             });
           }
         }

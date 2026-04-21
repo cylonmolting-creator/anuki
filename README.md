@@ -423,6 +423,10 @@ PUT  /api/workspaces/:id/soul/:f  # Update a soul file
 GET  /api/active-jobs             # Running agent jobs
 POST /api/safe-restart            # Request graceful restart (queued if agents are busy)
 GET  /api/safe-restart/status     # Check whether a queued restart has already fired
+POST /api/backup/create           # Create backup archive (workspace + data + config)
+GET  /api/backup/list             # List all backups
+GET  /api/backup/stats            # Backup statistics
+GET  /api/backup/:filename        # Download a specific backup
 ```
 
 Full API: 110+ REST endpoints covering agents, workspaces, conversations, memory, cron, skills, and inter-agent messaging.

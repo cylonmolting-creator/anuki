@@ -1085,7 +1085,7 @@ class AgentExecutor {
             messages: [],
             created: new Date().toISOString(),
             lastActivity: new Date().toISOString()
-          });
+          }).catch(e => this.log?.('Session persist bg failed: ' + e.message));
         }
         return replyFn(`${cleared} session(s) cleared (memory preserved)`);
       }

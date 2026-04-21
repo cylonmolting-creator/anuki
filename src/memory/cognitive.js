@@ -105,12 +105,12 @@ class CognitiveMemory {
     return '';
   }
 
-  updateCoreMemory(newContent) {
+  async updateCoreMemory(newContent) {
     try {
       // Atomic write: write to temp file then rename (prevents corruption on crash)
       const tmpFile = this.coreMemoryFile + '.tmp';
-      fs.writeFileSync(tmpFile, newContent, 'utf8');
-      fs.renameSync(tmpFile, this.coreMemoryFile);
+      await fs.promises.writeFile(tmpFile, newContent, 'utf8');
+      await fs.promises.rename(tmpFile, this.coreMemoryFile);
       this._coreMemoryCache = newContent; // Update cache
       this.log('Core memory updated');
       return true;
@@ -213,8 +213,10 @@ class CognitiveMemory {
       episode.steps.push(stepEntry);
       episode.stepCount = episode.steps.length;
 
-      // Also need to persist back to disk (update the daily JSONL file)
-      this._updateEpisodeOnDisk(episode);
+      // Persist back to disk (non-blocking — caller doesn't await)
+      this._updateEpisodeOnDisk(episode).catch(e => {
+        this.log('_updateEpisodeOnDisk background failed: ' + e.message);
+      });
 
       this.log('Step added', `${episodeId}:step${stepEntry.index}`);
       return true;
@@ -332,15 +334,16 @@ class CognitiveMemory {
    * Internal: Update an episode's entry on disk (append-only JSONL)
    * Since JSONL is append-only, we remove the old entry and append the updated one
    */
-  _updateEpisodeOnDisk(episode) {
+  async _updateEpisodeOnDisk(episode) {
     try {
       const dateStr = episode.timestamp.split('T')[0];
       const filePath = path.join(this.dirs.episodic, dateStr + '.jsonl');
 
-      if (!fs.existsSync(filePath)) return false;
+      try { await fs.promises.access(filePath); } catch { return false; }
 
       // Read all lines, filter out the old episode, write back with updated one
-      const lines = fs.readFileSync(filePath, 'utf8').split('\n').filter(l => l.trim());
+      const content = await fs.promises.readFile(filePath, 'utf8');
+      const lines = content.split('\n').filter(l => l.trim());
       const filtered = lines.filter(line => {
         try {
           const entry = JSON.parse(line);
@@ -353,8 +356,8 @@ class CognitiveMemory {
       // Atomic write: temp file + rename to prevent data loss on concurrent access
       const updatedContent = filtered.join('\n') + (filtered.length > 0 ? '\n' : '') + JSON.stringify(episode) + '\n';
       const tmpFile = filePath + '.tmp';
-      fs.writeFileSync(tmpFile, updatedContent, 'utf8');
-      fs.renameSync(tmpFile, filePath);
+      await fs.promises.writeFile(tmpFile, updatedContent, 'utf8');
+      await fs.promises.rename(tmpFile, filePath);
 
       return true;
     } catch (e) {
@@ -388,14 +391,17 @@ class CognitiveMemory {
     };
 
     const filePath = path.join(this.dirs.semantic, 'knowledge.jsonl');
-    
+
     try {
       // If superseding, invalidate old fact
       if (entry.supersedes) {
         this._invalidateSemantic(entry.supersedes);
       }
-      
-      fs.appendFileSync(filePath, JSON.stringify(entry) + '\n', 'utf8');
+
+      // Non-blocking write — index immediately, disk write in background
+      fs.promises.appendFile(filePath, JSON.stringify(entry) + '\n', 'utf8').catch(err => {
+        this.log('Semantic write failed (async): ' + err.message);
+      });
       const indexed = this._indexEntry(entry, 'semantic');
       this.index.semantic.push(indexed);
       this._updateDocumentFrequency(indexed);
@@ -434,7 +440,10 @@ class CognitiveMemory {
     const filePath = path.join(this.dirs.procedural, 'skills.jsonl');
     
     try {
-      fs.appendFileSync(filePath, JSON.stringify(entry) + '\n', 'utf8');
+      // Non-blocking write — index immediately, disk write in background
+      fs.promises.appendFile(filePath, JSON.stringify(entry) + '\n', 'utf8').catch(err => {
+        this.log('Procedural write failed (async): ' + err.message);
+      });
       const indexed = this._indexEntry(entry, 'procedural');
       this.index.procedural.push(indexed);
       this._updateDocumentFrequency(indexed);
@@ -939,7 +948,7 @@ Respond in JSON:
   /**
    * Save session to disk
    */
-  persistSession(channel, userId, session) {
+  async persistSession(channel, userId, session) {
     // Sanitize to prevent path traversal (strip anything except alphanumeric, dash, underscore, dot)
     const safeChannel = String(channel).replace(/[^a-zA-Z0-9_.-]/g, '_');
     const safeUserId = String(userId).replace(/[^a-zA-Z0-9_.-]/g, '_');
@@ -951,7 +960,7 @@ Respond in JSON:
       this.log('Session persist blocked: path traversal attempt');
       return false;
     }
-    
+
     try {
       const data = {
         channel,
@@ -960,11 +969,11 @@ Respond in JSON:
         messageCount: session.messages ? session.messages.length : 0,
         messages: session.messages || []
       };
-      
-      // Atomic write: temp file + rename
+
+      // Atomic write: temp file + rename (async)
       const tmpFile = filePath + '.tmp';
-      fs.writeFileSync(tmpFile, JSON.stringify(data, null, 2), 'utf8');
-      fs.renameSync(tmpFile, filePath);
+      await fs.promises.writeFile(tmpFile, JSON.stringify(data, null, 2), 'utf8');
+      await fs.promises.rename(tmpFile, filePath);
       return true;
     } catch (e) {
       this.log('Session persist failed: ' + e.message);

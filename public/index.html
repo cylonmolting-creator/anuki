@@ -30,8 +30,30 @@
       --shadow-md: 0 4px 12px rgba(0,0,0,0.5);
       --shadow-lg: 0 8px 32px rgba(0,0,0,0.6);
       --shadow-gold: 0 0 20px rgba(201,168,76,0.1);
+      --sidebar-bg: #14141e;
       --sidebar-w: 260px;
       --header-h: 56px;
+    }
+
+    [data-theme="light"] {
+      --bg: #f5f5f0;
+      --surface: #ffffff;
+      --surface-hover: #f0f0eb;
+      --surface-elevated: #fafaf7;
+      --sidebar-bg: #eeeee8;
+      --border: rgba(139,105,20,0.15);
+      --border-strong: rgba(139,105,20,0.3);
+      --text: #1a1a2e;
+      --text-dim: #6b6b80;
+      --gold: #a08030;
+      --gold-light: #c9a84c;
+      --gold-dark: #6b5010;
+      --gold-glow: rgba(139,105,20,0.1);
+      --gold-glow-strong: rgba(139,105,20,0.2);
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+      --shadow-md: 0 4px 12px rgba(0,0,0,0.1);
+      --shadow-lg: 0 8px 32px rgba(0,0,0,0.12);
+      --shadow-gold: 0 0 20px rgba(139,105,20,0.06);
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -53,7 +75,7 @@
     /* Sidebar */
     .sidebar {
       width: var(--sidebar-w);
-      background: linear-gradient(180deg, #14141e 0%, var(--surface) 100%);
+      background: linear-gradient(180deg, var(--sidebar-bg) 0%, var(--surface) 100%);
       border-right: 1px solid var(--border);
       display: flex;
       flex-direction: column;
@@ -215,6 +237,37 @@
       border-color: rgba(201,168,76,0.1);
     }
 
+    .sidebar-footer-row {
+      display: flex;
+      gap: 8px;
+    }
+    .sidebar-footer-row .settings-btn { flex: 1; }
+
+    .theme-toggle-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 40px;
+      min-width: 40px;
+      padding: 10px 0;
+      background: none;
+      border: 1px solid transparent;
+      color: var(--text-dim);
+      font-size: 16px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .theme-toggle-btn:hover {
+      background: rgba(201,168,76,0.06);
+      color: var(--gold-light);
+      border-color: rgba(201,168,76,0.1);
+    }
+    .theme-toggle-btn:focus {
+      outline: 2px solid var(--gold);
+      outline-offset: 2px;
+    }
+
     /* Main Chat Area */
     .main {
       flex: 1;
@@ -332,6 +385,120 @@
       line-height: 1.7;
       color: var(--text-dim);
     }
+
+    .welcome-prompts {
+      margin-top: 32px;
+    }
+    .welcome-prompts-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-dim);
+      margin-bottom: 12px;
+    }
+    .welcome-prompts-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-width: 380px;
+      margin: 0 auto;
+    }
+    .example-prompt-btn {
+      background: var(--surface-elevated);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 16px;
+      color: var(--text);
+      font-size: 14px;
+      cursor: pointer;
+      text-align: left;
+      transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+    }
+    .example-prompt-btn:hover {
+      border-color: var(--gold);
+      background: rgba(201,168,76,0.06);
+      box-shadow: 0 0 12px rgba(201,168,76,0.08);
+    }
+    .example-prompt-btn:focus {
+      outline: 2px solid var(--gold);
+      outline-offset: 2px;
+    }
+    .example-prompt-btn .prompt-icon {
+      margin-right: 8px;
+      opacity: 0.5;
+    }
+
+    /* Onboarding tooltip */
+    .onboarding-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.65);
+      z-index: 10000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .onboarding-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 32px;
+      max-width: 420px;
+      width: 90%;
+      text-align: center;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    }
+    .onboarding-card h3 {
+      font-size: 20px;
+      color: var(--text);
+      margin-bottom: 12px;
+    }
+    .onboarding-card p {
+      font-size: 14px;
+      color: var(--text-dim);
+      line-height: 1.6;
+      margin-bottom: 20px;
+    }
+    .onboarding-steps {
+      display: flex;
+      justify-content: center;
+      gap: 6px;
+      margin-bottom: 20px;
+    }
+    .onboarding-step-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--border);
+      transition: background 0.3s;
+    }
+    .onboarding-step-dot.active {
+      background: var(--gold);
+    }
+    .onboarding-actions {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+    }
+    .onboarding-btn {
+      padding: 10px 24px;
+      border-radius: 8px;
+      font-size: 14px;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      transition: all 0.2s;
+    }
+    .onboarding-btn.primary {
+      background: linear-gradient(135deg, var(--gold) 0%, var(--gold-dark) 100%);
+      color: #1a1a2e;
+      border: none;
+      font-weight: 600;
+    }
+    .onboarding-btn.primary:hover { opacity: 0.9; }
+    .onboarding-btn.secondary {
+      background: transparent;
+      color: var(--text-dim);
+    }
+    .onboarding-btn.secondary:hover { color: var(--text); }
 
     /* Input Area */
     .input-area {
@@ -640,10 +807,13 @@
       </div>
 
       <div class="sidebar-footer">
+        <div class="sidebar-footer-row">
         <button class="settings-btn" onclick="openSettings()" aria-label="Open settings">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 4.754a3.246 3.246 0 1 0 0 6.492 3.246 3.246 0 0 0 0-6.492zM5.754 8a2.246 2.246 0 1 1 4.492 0 2.246 2.246 0 0 1-4.492 0z"/><path d="M9.796 1.343c-.527-1.79-3.065-1.79-3.592 0l-.094.319a.873.873 0 0 1-1.255.52l-.292-.16c-1.64-.892-3.433.902-2.54 2.541l.159.292a.873.873 0 0 1-.52 1.255l-.319.094c-1.79.527-1.79 3.065 0 3.592l.319.094a.873.873 0 0 1 .52 1.255l-.16.292c-.892 1.64.901 3.434 2.541 2.54l.292-.159a.873.873 0 0 1 1.255.52l.094.319c.527 1.79 3.065 1.79 3.592 0l.094-.319a.873.873 0 0 1 1.255-.52l.292.16c1.64.893 3.434-.902 2.54-2.541l-.159-.292a.873.873 0 0 1 .52-1.255l.319-.094c1.79-.527 1.79-3.065 0-3.592l-.319-.094a.873.873 0 0 1-.52-1.255l.16-.292c.893-1.64-.902-3.433-2.541-2.54l-.292.159a.873.873 0 0 1-1.255-.52l-.094-.319zm-2.633.283c.246-.835 1.428-.835 1.674 0l.094.319a1.873 1.873 0 0 0 2.693 1.115l.291-.16c.764-.415 1.6.42 1.184 1.185l-.159.292a1.873 1.873 0 0 0 1.116 2.692l.318.094c.835.246.835 1.428 0 1.674l-.319.094a1.873 1.873 0 0 0-1.115 2.693l.16.291c.415.764-.421 1.6-1.185 1.184l-.291-.159a1.873 1.873 0 0 0-2.693 1.116l-.094.318c-.246.835-1.428.835-1.674 0l-.094-.319a1.873 1.873 0 0 0-2.692-1.115l-.292.16c-.764.415-1.6-.421-1.184-1.185l.159-.291A1.873 1.873 0 0 0 1.945 8.93l-.319-.094c-.835-.246-.835-1.428 0-1.674l.319-.094A1.873 1.873 0 0 0 3.06 4.377l-.16-.292c-.415-.764.42-1.6 1.185-1.184l.292.159a1.873 1.873 0 0 0 2.692-1.115l.094-.319z"/></svg>
           Settings
         </button>
+        <button class="theme-toggle-btn" id="themeToggle" onclick="toggleTheme()" aria-label="Toggle light/dark mode" title="Toggle theme">&#x2600;</button>
+        </div>
       </div>
     </aside>
 
@@ -660,7 +830,16 @@
       <div class="messages" id="messages" role="log" aria-label="Chat messages" aria-live="polite">
         <div class="welcome">
           <h2>Welcome to Anuki</h2>
-          <p>The Agent Civilization awaits. Talk to an agent to get started, or switch agents in the sidebar.</p>
+          <p>Your multi-agent team is ready. Pick an agent from the sidebar or try one of these:</p>
+          <div class="welcome-prompts">
+            <div class="welcome-prompts-label">Try asking</div>
+            <div class="welcome-prompts-grid">
+              <button class="example-prompt-btn" onclick="useExamplePrompt(this)" data-prompt="What can you help me with?"><span class="prompt-icon">&#x1F4AC;</span>What can you help me with?</button>
+              <button class="example-prompt-btn" onclick="useExamplePrompt(this)" data-prompt="Explain how you work under the hood"><span class="prompt-icon">&#x2699;</span>Explain how you work under the hood</button>
+              <button class="example-prompt-btn" onclick="useExamplePrompt(this)" data-prompt="Write a short Python script that fetches weather data"><span class="prompt-icon">&#x1F4BB;</span>Write a Python script that fetches weather data</button>
+              <button class="example-prompt-btn" onclick="useExamplePrompt(this)" data-prompt="Help me brainstorm ideas for a side project"><span class="prompt-icon">&#x1F4A1;</span>Help me brainstorm side project ideas</button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1319,8 +1498,130 @@
       if (e.key === 'Escape') closeSettings();
     });
 
+    // ═══════════════════════════════════════════════════════
+    // Onboarding — Example Prompts & First-Run Tutorial
+    // ════════════════════════════════════════════════════���══
+
+    function useExamplePrompt(btn) {
+      const prompt = btn.getAttribute('data-prompt');
+      if (!prompt) return;
+      const input = document.getElementById('messageInput');
+      input.value = prompt;
+      autoResize(input);
+      input.focus();
+      sendMessage();
+    }
+
+    const ONBOARDING_STEPS = [
+      {
+        title: 'Meet Your Agents',
+        text: 'The sidebar lists your AI agents. Each has a unique role and personality. Click any agent to start a conversation.',
+      },
+      {
+        title: 'Chat Naturally',
+        text: 'Type your message below and press Enter. Agents can write code, research topics, create content, and work together.',
+      },
+      {
+        title: 'You\'re All Set',
+        text: 'Try the example prompts on the welcome screen, or just say hello. Your agents are ready to help.',
+      },
+    ];
+
+    let _onboardingStep = 0;
+
+    function showOnboarding() {
+      if (localStorage.getItem('anuki-onboarding-seen')) return;
+      _onboardingStep = 0;
+      _renderOnboardingStep();
+    }
+
+    function _renderOnboardingStep() {
+      let overlay = document.getElementById('onboardingOverlay');
+      if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'onboardingOverlay';
+        overlay.className = 'onboarding-overlay';
+        document.body.appendChild(overlay);
+      }
+
+      const step = ONBOARDING_STEPS[_onboardingStep];
+      const dots = ONBOARDING_STEPS.map((_, i) =>
+        '<span class="onboarding-step-dot' + (i === _onboardingStep ? ' active' : '') + '"></span>'
+      ).join('');
+
+      const isLast = _onboardingStep === ONBOARDING_STEPS.length - 1;
+      overlay.innerHTML = '<div class="onboarding-card">' +
+        '<h3>' + step.title + '</h3>' +
+        '<p>' + step.text + '</p>' +
+        '<div class="onboarding-steps">' + dots + '</div>' +
+        '<div class="onboarding-actions">' +
+          '<button class="onboarding-btn secondary" onclick="dismissOnboarding()">Skip</button>' +
+          '<button class="onboarding-btn primary" onclick="' + (isLast ? 'dismissOnboarding()' : 'nextOnboardingStep()') + '">' +
+            (isLast ? 'Get Started' : 'Next') +
+          '</button>' +
+        '</div>' +
+      '</div>';
+
+      overlay.style.display = 'flex';
+    }
+
+    function nextOnboardingStep() {
+      _onboardingStep++;
+      if (_onboardingStep >= ONBOARDING_STEPS.length) {
+        dismissOnboarding();
+      } else {
+        _renderOnboardingStep();
+      }
+    }
+
+    function dismissOnboarding() {
+      localStorage.setItem('anuki-onboarding-seen', '1');
+      const overlay = document.getElementById('onboardingOverlay');
+      if (overlay) overlay.remove();
+      document.getElementById('messageInput').focus();
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // Theme — Dark/Light Mode Toggle
+    // ═══════════════════════════════════════════════════════
+
+    function getPreferredTheme() {
+      const saved = localStorage.getItem('anuki-theme');
+      if (saved === 'light' || saved === 'dark') return saved;
+      return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    }
+
+    function applyTheme(theme) {
+      if (theme === 'light') {
+        document.documentElement.setAttribute('data-theme', 'light');
+      } else {
+        document.documentElement.removeAttribute('data-theme');
+      }
+      const btn = document.getElementById('themeToggle');
+      if (btn) btn.textContent = theme === 'light' ? '\u263D' : '\u2600';
+    }
+
+    function toggleTheme() {
+      const current = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+      const next = current === 'light' ? 'dark' : 'light';
+      localStorage.setItem('anuki-theme', next);
+      applyTheme(next);
+    }
+
+    // Apply theme immediately (before init, to prevent flash)
+    applyTheme(getPreferredTheme());
+
+    // Listen for OS theme changes
+    window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', (e) => {
+      if (!localStorage.getItem('anuki-theme')) {
+        applyTheme(e.matches ? 'light' : 'dark');
+      }
+    });
+
     // Start
     init();
+    // Show onboarding after a short delay (let UI render first)
+    setTimeout(showOnboarding, 800);
   </script>
 </body>
 </html>
