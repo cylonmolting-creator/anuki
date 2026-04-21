@@ -1047,6 +1047,12 @@
       ws.onclose = () => {
         document.getElementById('reconnectBanner').classList.add('active');
         document.getElementById('messageInput').disabled = true;
+        // M24: If agent was mid-response, finalize partial content and notify user
+        if (streamingBuffer) {
+          finalizeStreamingMessage(streamingBuffer + '\n\n*(connection lost — response may be incomplete)*');
+          streamingBuffer = '';
+        }
+        hideTyping();
         wsReconnectAttempts++;
         if (wsReconnectAttempts > 50) {
           document.getElementById('headerStatus').textContent = 'offline';
@@ -1268,7 +1274,12 @@
         };
         const byokKey = getSavedApiKey();
         if (byokKey) msg.apiKey = byokKey;
-        ws.send(JSON.stringify(msg));
+        try {
+          ws.send(JSON.stringify(msg));
+        } catch (e) {
+          hideTyping();
+          addMessage('system', 'Failed to send — connection lost. Reconnecting...');
+        }
       } else {
         hideTyping();
         addMessage('system', 'Connection lost. Reconnecting...');
