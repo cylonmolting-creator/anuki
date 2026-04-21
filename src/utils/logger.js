@@ -25,6 +25,10 @@ class Logger {
       fs.mkdirSync(logDir, { recursive: true });
     }
 
+    // Non-blocking write streams (replaces appendFileSync)
+    this._logStream = fs.createWriteStream(this.logFile, { flags: 'a' });
+    this._errorStream = fs.createWriteStream(this.errorFile, { flags: 'a' });
+
     // Throttled rotation: check every N writes instead of every write
     this._writeCount = 0;
     this._rotationCheckInterval = 100; // Check rotation every 100 writes
@@ -73,9 +77,9 @@ class Logger {
 
     const logLine = JSON.stringify(logEntry) + '\n';
 
-    // Write to file
+    // Write to file (non-blocking stream)
     try {
-      fs.appendFileSync(this.logFile, logLine);
+      this._logStream.write(logLine);
       this._maybeCheckRotation(this.logFile);
     } catch (e) {
       // Fallback: just console
@@ -102,7 +106,7 @@ class Logger {
 
   _writeError(logLine) {
     try {
-      fs.appendFileSync(this.errorFile, logLine);
+      this._errorStream.write(logLine);
       this._maybeCheckRotation(this.errorFile);
     } catch (e) {
       // Ignore error log write failures
@@ -127,6 +131,10 @@ class Logger {
       const stats = fs.statSync(filePath);
       if (stats.size < this.maxSize) return;
 
+      // Close current stream before rotation
+      if (filePath === this.logFile) this._logStream.end();
+      if (filePath === this.errorFile) this._errorStream.end();
+
       // Rotate: file.7 -> delete, file.6 -> file.7, ... file.1 -> file.2, file -> file.1
       for (let i = this.maxFiles; i >= 1; i--) {
         const from = i === 1 ? filePath : filePath + '.' + (i - 1);
@@ -138,6 +146,10 @@ class Logger {
           fs.renameSync(from, to);
         }
       }
+
+      // Reopen stream for the rotated file
+      if (filePath === this.logFile) this._logStream = fs.createWriteStream(this.logFile, { flags: 'a' });
+      if (filePath === this.errorFile) this._errorStream = fs.createWriteStream(this.errorFile, { flags: 'a' });
     } catch (e) {
       // Rotation failure is non-critical
     }

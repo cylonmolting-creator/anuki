@@ -11,6 +11,9 @@ class ConversationManager {
     this.logger = logger;
     this.dataDir = path.join(baseDir, 'data');
     this.conversationsFile = path.join(this.dataDir, 'conversations.json');
+    this._cache = null;        // In-memory cache — eliminates per-call disk reads
+    this._saveTimer = null;    // Debounced write timer
+    this._saveDelay = 500;     // ms — batch rapid writes into one disk write
 
     // Ensure data directory exists
     if (!fs.existsSync(this.dataDir)) {
@@ -18,12 +21,14 @@ class ConversationManager {
     }
   }
 
-  // Load conversations with error recovery (exactly as old system)
+  // Load conversations — returns in-memory cache (disk read only on first call or cache miss)
   loadConversations() {
+    if (this._cache) return this._cache;
     try {
       if (fs.existsSync(this.conversationsFile)) {
         const content = fs.readFileSync(this.conversationsFile, 'utf8');
-        return JSON.parse(content);
+        this._cache = JSON.parse(content);
+        return this._cache;
       }
     } catch (e) {
       this.logger.error('ConversationManager', 'Error loading conversations, creating backup:', e.message);
@@ -42,15 +47,33 @@ class ConversationManager {
         );
       }
     }
-    return { conversations: [], currentId: null };
+    this._cache = { conversations: [], currentId: null };
+    return this._cache;
   }
 
-  // Save conversations with atomic write (exactly as old system)
+  // Save conversations — updates cache immediately, debounces disk write
   saveConversations(data) {
+    this._cache = data;
+    // Debounce disk writes — batch rapid mutations into one I/O
+    if (this._saveTimer) clearTimeout(this._saveTimer);
+    this._saveTimer = setTimeout(() => this._flushToDisk(), this._saveDelay);
+  }
+
+  // Immediate flush — called on shutdown or when disk consistency is needed
+  flushSync() {
+    if (this._saveTimer) {
+      clearTimeout(this._saveTimer);
+      this._saveTimer = null;
+    }
+    if (this._cache) this._flushToDisk();
+  }
+
+  _flushToDisk() {
+    this._saveTimer = null;
+    if (!this._cache) return;
     try {
-      // Write to temp file first, then rename (atomic operation)
       const tempFile = this.conversationsFile + '.tmp';
-      fs.writeFileSync(tempFile, JSON.stringify(data, null, 2));
+      fs.writeFileSync(tempFile, JSON.stringify(this._cache, null, 2));
       fs.renameSync(tempFile, this.conversationsFile);
     } catch (e) {
       this.logger.error('ConversationManager', 'Error saving conversations:', e.message);

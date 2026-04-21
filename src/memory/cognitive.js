@@ -93,11 +93,15 @@ class CognitiveMemory {
   // ═══════════════════════════════════════════════════════════════
 
   getCoreMemory() {
+    // Return cached version if available (invalidated on update)
+    if (this._coreMemoryCache !== undefined) return this._coreMemoryCache;
     try {
       if (fs.existsSync(this.coreMemoryFile)) {
-        return fs.readFileSync(this.coreMemoryFile, 'utf8');
+        this._coreMemoryCache = fs.readFileSync(this.coreMemoryFile, 'utf8');
+        return this._coreMemoryCache;
       }
     } catch (e) {}
+    this._coreMemoryCache = '';
     return '';
   }
 
@@ -107,6 +111,7 @@ class CognitiveMemory {
       const tmpFile = this.coreMemoryFile + '.tmp';
       fs.writeFileSync(tmpFile, newContent, 'utf8');
       fs.renameSync(tmpFile, this.coreMemoryFile);
+      this._coreMemoryCache = newContent; // Update cache
       this.log('Core memory updated');
       return true;
     } catch (e) {
@@ -157,7 +162,11 @@ class CognitiveMemory {
     const filePath = path.join(this.dirs.episodic, dateStr + '.jsonl');
 
     try {
-      fs.appendFileSync(filePath, JSON.stringify(entry) + '\n', 'utf8');
+      // Non-blocking write — index immediately, disk write in background
+      const line = JSON.stringify(entry) + '\n';
+      fs.promises.appendFile(filePath, line, 'utf8').catch(err => {
+        this.log('Episode write failed (async): ' + err.message);
+      });
       const indexed = this._indexEntry(entry, 'episodic');
       this.index.episodic.push(indexed);
       this._updateDocumentFrequency(indexed);

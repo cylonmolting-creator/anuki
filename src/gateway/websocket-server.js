@@ -22,6 +22,11 @@ class GatewayWebSocketServer {
 
     this.clients = new Map(); // connectionId -> { ws, workspaceId, conversationId, heartbeat }
 
+    // Message deduplication: messageId -> timestamp (5-min TTL)
+    this._dedupCache = new Map();
+    this._dedupTTL = 5 * 60 * 1000; // 5 minutes
+    setInterval(() => this._cleanDedupCache(), 60000); // Cleanup every minute
+
     // Resume event buffer: when a resumed job streams events but no client is watching,
     // buffer them so they can be replayed when a client selects that conversation.
     this._resumeBuffers = new Map(); // conversationId -> { events: [], processing: bool, fullResponse: string }
@@ -315,6 +320,14 @@ class GatewayWebSocketServer {
       return;
     }
 
+    // Message deduplication — reject if messageId already processed
+    if (msg.messageId && this._dedupCache.has(msg.messageId)) {
+      this.logger.info('WebSocket', `Duplicate message rejected: ${msg.messageId}`);
+      this._send(client.ws, { type: 'duplicate', messageId: msg.messageId });
+      return;
+    }
+    if (msg.messageId) this._dedupCache.set(msg.messageId, Date.now());
+
     // Support multiple message field names for backwards compatibility
     const userMessage = msg.userMessage || msg.message || msg.content || '';
     const images = msg.images || [];
@@ -406,6 +419,7 @@ class GatewayWebSocketServer {
     if (!this._activeAgents) this._activeAgents = new Map();
     if (!isConversationBusy) {
       this._activeAgents.set(agentId, (this._activeAgents.get(agentId) || 0) + 1);
+      // Broadcast to all — agent status dots are visible in sidebar for every workspace
       this.broadcast({ type: 'agent-status', agentId, status: 'active' });
     }
 
@@ -431,6 +445,7 @@ class GatewayWebSocketServer {
         sessionId: conv?.sessionId || null, // Resume session if available
         requestId,
         requestTracer: this.requestTracer, // Pass tracer for roadmap 10.1
+        apiKeyOverride: msg.apiKey || null, // BYOK: user-provided API key
         onEvent: (event) => {
           // Capture text for conversation history
           if (event.type === 'text') {
@@ -750,6 +765,33 @@ class GatewayWebSocketServer {
       this.logger.info('WebSocket', `Broadcast ${message.type} to ${sent} clients`);
     }
     return sent;
+  }
+
+  // Broadcast message only to clients viewing a specific workspace
+  broadcastToWorkspace(workspaceId, message) {
+    const payload = JSON.stringify(message);
+    let sent = 0;
+    for (const [id, client] of this.clients) {
+      if (client.workspaceId === workspaceId && client.ws && client.ws.readyState === 1) {
+        try {
+          client.ws.send(payload, (err) => {
+            if (err) this.logger.error('WebSocket', `Workspace broadcast error to ${id}:`, err.message);
+          });
+          sent++;
+        } catch (e) {
+          this.logger.error('WebSocket', `Failed workspace broadcast to ${id}:`, e.message);
+        }
+      }
+    }
+    return sent;
+  }
+
+  // Clean expired entries from dedup cache
+  _cleanDedupCache() {
+    const now = Date.now();
+    for (const [id, ts] of this._dedupCache) {
+      if (now - ts > this._dedupTTL) this._dedupCache.delete(id);
+    }
   }
 
   // Decrement active count for agent and broadcast idle if no more active tasks

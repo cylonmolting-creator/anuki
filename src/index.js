@@ -57,6 +57,7 @@ let g_cognitiveMemory = null;
 let g_executor = null;
 let g_pidRegistry = null;
 let g_supervisor = null;
+let g_conversationManager = null;
 
 console.log(`
 ╔══════════════════════════════════════════════════════════╗
@@ -385,6 +386,7 @@ async function main() {
 
     // Conversation manager
     const conversationManager = new ConversationManager(BASE_DIR, logger);
+    g_conversationManager = conversationManager;
     messageRouter.executor = agentExecutor;
     messageRouter.conversationManager = conversationManager;
     agentExecutor.conversationManager = conversationManager;
@@ -563,6 +565,7 @@ async function gracefulShutdown(signal) {
     if (g_httpServer) {
       await new Promise(resolve => g_httpServer.close(resolve));
     }
+    if (g_conversationManager) g_conversationManager.flushSync();
     if (g_pidRegistry) await g_pidRegistry.killAll();
     try { fs.unlinkSync(PID_FILE); } catch (e) { /* ignore */ }
   } catch (e) {

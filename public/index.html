@@ -606,7 +606,7 @@
 <body>
   <div class="app">
     <!-- Sidebar -->
-    <aside class="sidebar">
+    <aside class="sidebar" role="navigation" aria-label="Agent list">
       <div class="sidebar-header">
         <svg class="brand-logo" viewBox="0 0 80 80" width="32" height="32">
           <path d="M8,40 Q24,18 40,18 Q56,18 72,40 Q56,62 40,62 Q24,62 8,40 Z" fill="none" stroke="#c9a84c" stroke-width="1.8"/>
@@ -625,14 +625,14 @@
       </div>
 
       <div class="sidebar-section">
-        <div class="sidebar-section-title">Agents</div>
-        <ul class="agent-list" id="agentList">
+        <div class="sidebar-section-title" id="agentListLabel">Agents</div>
+        <ul class="agent-list" id="agentList" role="listbox" aria-labelledby="agentListLabel">
           <!-- Populated dynamically -->
         </ul>
       </div>
 
       <div class="sidebar-footer">
-        <button class="settings-btn" onclick="openSettings()">
+        <button class="settings-btn" onclick="openSettings()" aria-label="Open settings">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 4.754a3.246 3.246 0 1 0 0 6.492 3.246 3.246 0 0 0 0-6.492zM5.754 8a2.246 2.246 0 1 1 4.492 0 2.246 2.246 0 0 1-4.492 0z"/><path d="M9.796 1.343c-.527-1.79-3.065-1.79-3.592 0l-.094.319a.873.873 0 0 1-1.255.52l-.292-.16c-1.64-.892-3.433.902-2.54 2.541l.159.292a.873.873 0 0 1-.52 1.255l-.319.094c-1.79.527-1.79 3.065 0 3.592l.319.094a.873.873 0 0 1 .52 1.255l-.16.292c-.892 1.64.901 3.434 2.541 2.54l.292-.159a.873.873 0 0 1 1.255.52l.094.319c.527 1.79 3.065 1.79 3.592 0l.094-.319a.873.873 0 0 1 1.255-.52l.292.16c1.64.893 3.434-.902 2.54-2.541l-.159-.292a.873.873 0 0 1 .52-1.255l.319-.094c1.79-.527 1.79-3.065 0-3.592l-.319-.094a.873.873 0 0 1-.52-1.255l.16-.292c.893-1.64-.902-3.433-2.541-2.54l-.292.159a.873.873 0 0 1-1.255-.52l-.094-.319zm-2.633.283c.246-.835 1.428-.835 1.674 0l.094.319a1.873 1.873 0 0 0 2.693 1.115l.291-.16c.764-.415 1.6.42 1.184 1.185l-.159.292a1.873 1.873 0 0 0 1.116 2.692l.318.094c.835.246.835 1.428 0 1.674l-.319.094a1.873 1.873 0 0 0-1.115 2.693l.16.291c.415.764-.421 1.6-1.185 1.184l-.291-.159a1.873 1.873 0 0 0-2.693 1.116l-.094.318c-.246.835-1.428.835-1.674 0l-.094-.319a1.873 1.873 0 0 0-2.692-1.115l-.292.16c-.764.415-1.6-.421-1.184-1.185l.159-.291A1.873 1.873 0 0 0 1.945 8.93l-.319-.094c-.835-.246-.835-1.428 0-1.674l.319-.094A1.873 1.873 0 0 0 3.06 4.377l-.16-.292c-.415-.764.42-1.6 1.185-1.184l.292.159a1.873 1.873 0 0 0 2.692-1.115l.094-.319z"/></svg>
           Settings
         </button>
@@ -640,16 +640,16 @@
     </aside>
 
     <!-- Main Chat -->
-    <main class="main">
-      <div class="chat-header">
-        <button class="mobile-menu-btn" onclick="document.querySelector('.sidebar').classList.toggle('open')">&#9776;</button>
+    <main class="main" role="main" aria-label="Chat area">
+      <div class="chat-header" role="banner">
+        <button class="mobile-menu-btn" onclick="document.querySelector('.sidebar').classList.toggle('open')" aria-label="Toggle sidebar menu">&#9776;</button>
         <div class="agent-dot" id="headerDot" style="background: var(--text-dim)"></div>
         <span class="agent-name" id="headerName">Loading...</span>
         <span class="status" id="headerStatus">connecting</span>
       </div>
 
-      <div class="reconnect-banner" id="reconnectBanner">Connection lost. Reconnecting...</div>
-      <div class="messages" id="messages">
+      <div class="reconnect-banner" id="reconnectBanner" role="alert" aria-live="assertive">Connection lost. Reconnecting...</div>
+      <div class="messages" id="messages" role="log" aria-label="Chat messages" aria-live="polite">
         <div class="welcome">
           <h2>Welcome to Anuki</h2>
           <p>The Agent Civilization awaits. Talk to an agent to get started, or switch agents in the sidebar.</p>
@@ -672,8 +672,9 @@
             rows="1"
             onkeydown="handleKeyDown(event)"
             oninput="autoResize(this)"
+            aria-label="Message input"
           ></textarea>
-          <button class="send-btn" id="sendBtn" onclick="handleSendClick()">
+          <button class="send-btn" id="sendBtn" onclick="handleSendClick()" aria-label="Send message">
             <svg class="send-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2L15 22L11 13L2 9L22 2Z"/></svg>
             <svg class="cancel-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="display:none"><path d="M18 6L6 18"/><path d="M6 6L18 18"/></svg>
           </button>
@@ -683,9 +684,9 @@
   </div>
 
   <!-- Settings Modal -->
-  <div class="modal-overlay" id="settingsModal">
+  <div class="modal-overlay" id="settingsModal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
     <div class="modal">
-      <h2>Settings</h2>
+      <h2 id="settingsTitle">Settings</h2>
       <div class="form-group">
         <label>API Key (BYOK)</label>
         <input type="password" id="apiKey" placeholder="sk-ant-..." />
@@ -757,7 +758,11 @@
         const li = document.createElement('li');
         li.className = `agent-item ${currentAgent === a.id ? 'active' : ''}`;
         li.dataset.agent = a.id;
+        li.setAttribute('role', 'option');
+        li.setAttribute('aria-selected', currentAgent === a.id ? 'true' : 'false');
+        li.tabIndex = 0;
         li.onclick = () => selectAgent(a.id);
+        li.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectAgent(a.id); } };
         const dot = document.createElement('div');
         dot.className = 'agent-dot';
         dot.style.background = 'var(--accent)';
@@ -1070,13 +1075,17 @@
 
       // Send via WebSocket
       if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({
+        const msg = {
           type: 'message',
+          messageId: crypto.randomUUID(),
           content: text,
           workspaceId: currentAgent,
           conversationId: conversationId,
           channel: 'webchat'
-        }));
+        };
+        const byokKey = getSavedApiKey();
+        if (byokKey) msg.apiKey = byokKey;
+        ws.send(JSON.stringify(msg));
       } else {
         hideTyping();
         addMessage('system', 'Connection lost. Reconnecting...');
@@ -1279,12 +1288,17 @@
     }
 
     function saveSettings() {
-      const apiKey = document.getElementById('apiKey').value;
+      const apiKey = document.getElementById('apiKey').value.trim();
       if (apiKey) {
-        // Store locally — don't send to server
         localStorage.setItem('anuki_api_key', apiKey);
+      } else {
+        localStorage.removeItem('anuki_api_key');
       }
       closeSettings();
+    }
+
+    function getSavedApiKey() {
+      return localStorage.getItem('anuki_api_key') || '';
     }
 
     // Close modal on overlay click or Escape key

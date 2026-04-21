@@ -1341,6 +1341,7 @@ class AgentExecutor {
       delegationContext = null, // Optional: delegation chain context from message-router (roadmap 5.4)
       parentConversationId = null, // Optional: parent job's conversationId for restart resume linking
       forceModel = null, // Optional: override model selection (e.g., 'sonnet' for self-improve)
+      apiKeyOverride = null, // Optional: BYOK user-provided API key (passed to provider)
       onEvent,
       onComplete,
       onError
@@ -1870,6 +1871,12 @@ class AgentExecutor {
     // Spawn LLM process via provider
     const cleanEnv = { ...process.env };
     delete cleanEnv.CLAUDECODE; // Prevent nested session error for Claude CLI
+
+    // BYOK: override API key if user provided one
+    if (options.apiKeyOverride) {
+      cleanEnv.ANTHROPIC_API_KEY = options.apiKeyOverride;
+      cleanEnv.OPENAI_API_KEY = options.apiKeyOverride; // Also set for OpenAI provider
+    }
 
     const spawnResult = this.provider.spawnProcess(spawnConfig, workspaceDir, cleanEnv);
     const claudeProcess = spawnResult.process;
