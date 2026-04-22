@@ -543,6 +543,47 @@ async function main() {
       logger.success('System', `🌐 Anuki is running on http://localhost:${PORT}`);
       logger.success('System', `📊 Agents: ${agentManager.listAgents().length}`);
       logger.success('System', `🔧 Core agents: ENKI (creator) + PROTOS (bridge) + UTU (rules)`);
+
+      // Boot hook verification: ensure all agents have hook symlinks
+      try {
+        const projectSettings = path.join(BASE_DIR, '.claude', 'settings.json');
+        if (fs.existsSync(projectSettings)) {
+          const allWs = workspaceManager.listWorkspaces();
+          let fixed = 0;
+          for (const ws of allWs) {
+            if (ws.id === 'master' || !ws.cwdOverride) continue;
+            const resolvedCwd = ws.cwdOverride.replace(/^~/, process.env.HOME);
+            if (resolvedCwd === BASE_DIR) continue;
+            const agentClaudeDir = path.join(resolvedCwd, '.claude');
+            const agentSettings = path.join(agentClaudeDir, 'settings.json');
+            try {
+              if (!fs.existsSync(agentSettings)) {
+                fs.mkdirSync(agentClaudeDir, { recursive: true });
+                fs.symlinkSync(projectSettings, agentSettings);
+                fixed++;
+                logger.warn('System', `[HOOKS] Boot-fix: created hook symlink for ${ws.name}`);
+              } else if (fs.lstatSync(agentSettings).isSymbolicLink()) {
+                const target = fs.readlinkSync(agentSettings);
+                if (!fs.existsSync(target)) {
+                  fs.unlinkSync(agentSettings);
+                  fs.symlinkSync(projectSettings, agentSettings);
+                  fixed++;
+                  logger.warn('System', `[HOOKS] Boot-fix: repaired broken symlink for ${ws.name}`);
+                }
+              }
+            } catch (e) {
+              logger.warn('System', `[HOOKS] Boot-fix failed for ${ws.name}: ${e.message}`);
+            }
+          }
+          if (fixed > 0) {
+            logger.info('System', `[HOOKS] Boot verification: fixed ${fixed} agent(s)`);
+          } else {
+            logger.info('System', `[HOOKS] Boot verification: all agents have valid hook symlinks`);
+          }
+        }
+      } catch (bootHookErr) {
+        logger.warn('System', `[HOOKS] Boot verification error: ${bootHookErr.message}`);
+      }
     });
 
   } catch (error) {

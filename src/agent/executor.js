@@ -333,11 +333,13 @@ class AgentExecutor {
     this._workspaceLocks = new Map(); // workspaceId -> { conversationId, startedAt } — CRITICAL: prevents parallel CLI writes to same workspace
     this._baseDir = BASE_DIR;
 
-    // LLM Provider initialization
+    // LLM Provider initialization (default + provider cache for hot-swap)
     const providerName = process.env.LLM_PROVIDER || 'claude';
     const providerConfig = this._loadProviderConfig(providerName);
     this.provider = createProvider(providerName, providerConfig, logger);
     this.claudePath = this.provider.name === 'claude' ? this.provider.claudePath : null;
+    this._providerCache = new Map(); // providerName -> provider instance
+    this._providerCache.set(providerName, this.provider);
 
     // Error analysis (roadmap 9.4)
     // Pass 'this' so ErrorAnalyzer can use AgentExecutor for LLM analysis
@@ -388,6 +390,50 @@ class AgentExecutor {
       }
     } catch { /* use defaults */ }
     return {};
+  }
+
+  /**
+   * Get provider for a workspace, respecting providerOverride.
+   * Checks: workspace.providerOverride → agent.providerOverride → default.
+   * Uses a cache to avoid re-creating provider instances.
+   * @param {object} workspace - Workspace object (may have providerOverride)
+   * @returns {BaseProvider} Provider instance
+   */
+  _getProvider(workspace) {
+    // Check workspace first, then look up agent data for override
+    let override = workspace && workspace.providerOverride;
+    if (!override && workspace && this.agentManager) {
+      try {
+        const agent = this.agentManager.getAgent(workspace.id);
+        if (agent && agent.providerOverride) override = agent.providerOverride;
+      } catch { /* agent not found — use default */ }
+    }
+    if (!override) return this.provider; // default provider
+
+    // Check cache first
+    if (this._providerCache.has(override)) {
+      return this._providerCache.get(override);
+    }
+
+    // Validate provider name
+    const { getAvailableProviders } = require('./providers');
+    if (!getAvailableProviders().includes(override)) {
+      this.logger.warn('AgentExecutor', `Unknown providerOverride "${override}" for workspace ${workspace.id}, falling back to default`);
+      return this.provider;
+    }
+
+    // Create and cache new provider instance
+    const config = this._loadProviderConfig(override);
+    const provider = createProvider(override, config, this.logger);
+    const validation = provider.validate();
+    if (!validation.valid) {
+      this.logger.warn('AgentExecutor', `Provider "${override}" not configured (${validation.error}), falling back to default`);
+      return this.provider;
+    }
+
+    this._providerCache.set(override, provider);
+    this.logger.info('AgentExecutor', `Created provider "${override}" for workspace ${workspace.id}`);
+    return provider;
   }
 
   /**
@@ -1624,8 +1670,14 @@ class AgentExecutor {
     }
 
     // TOKEN OPTIMIZATION: Model tiering
-    // Workspace-level model override (e.g., SAFU → opus for instruction compliance)
-    const wsModelOverride = workspace && workspace.modelOverride ? workspace.modelOverride : null;
+    // Per-agent model override (workspace.modelOverride or agent.modelOverride)
+    let wsModelOverride = workspace && workspace.modelOverride ? workspace.modelOverride : null;
+    if (!wsModelOverride && this.agentManager) {
+      try {
+        const agentData = this.agentManager.getAgent(effectiveWorkspaceId);
+        if (agentData && agentData.modelOverride) wsModelOverride = agentData.modelOverride;
+      } catch { /* use default */ }
+    }
     let selectedModel = forceModel || wsModelOverride || this._selectModel(safeMessage);
     this.logger.info('AgentExecutor', `Model tier: ${selectedModel}${forceModel ? ' (forced)' : ''} (msg: ${safeMessage.length} chars)`, { requestId });
 
@@ -1734,6 +1786,22 @@ class AgentExecutor {
           this.logger.warn('AgentExecutor', `[CWD] Failed to create cwdOverride dir: ${e.message}`);
         }
       }
+
+      // Hook propagation: ensure agent CWD has .claude/settings.json symlink
+      // Catches cases where agent dir was recreated without hooks (e.g. manual delete)
+      const baseDir = require('../utils/base-dir');
+      const agentClaudeDir = path.join(overrideDir, '.claude');
+      const projectSettings = path.join(baseDir, '.claude', 'settings.json');
+      const agentSettings = path.join(agentClaudeDir, 'settings.json');
+      try {
+        if (fs.existsSync(projectSettings) && !fs.existsSync(agentSettings)) {
+          fs.mkdirSync(agentClaudeDir, { recursive: true });
+          fs.symlinkSync(projectSettings, agentSettings);
+          this.logger.info('AgentExecutor', `[HOOKS] Runtime hook propagation: ${overrideDir}`);
+        }
+      } catch (hookErr) {
+        this.logger.warn('AgentExecutor', `[HOOKS] Failed runtime hook propagation: ${hookErr.message}`);
+      }
     }
 
     // Fallback to HOME if workspace directory doesn't exist
@@ -1742,10 +1810,13 @@ class AgentExecutor {
       workspaceDir = process.env.HOME;
     }
 
+    // Provider selection — per-workspace override or default
+    const activeProvider = this._getProvider(workspace);
+
     // Session resumption — only for providers that support it
     // Validate session file exists on disk before attempting resume — prevents code 1 crash
     // when session belongs to a different workspace (cross-workspace session contamination)
-    if (effectiveSessionId && this.provider.supportsResume()) {
+    if (effectiveSessionId && activeProvider.supportsResume()) {
       const cwdOverride = workspace.cwdOverride ? workspace.cwdOverride.replace(/^~/, process.env.HOME) : null;
       const projectDirName = '-' + (cwdOverride || workspaceDir).replace(/[/.]/g, '-').replace(/^-/, '');
       const sessionFile = path.join(process.env.HOME, '.claude', 'projects', projectDirName, effectiveSessionId + '.jsonl');
@@ -1756,19 +1827,19 @@ class AgentExecutor {
       } else {
         this.logger.info('AgentExecutor', `Resuming session: ${effectiveSessionId}`);
       }
-    } else if (effectiveSessionId && !this.provider.supportsResume()) {
-      this.logger.info('AgentExecutor', `Provider '${this.provider.name}' does not support session resume — starting new session`);
+    } else if (effectiveSessionId && !activeProvider.supportsResume()) {
+      this.logger.info('AgentExecutor', `Provider '${activeProvider.name}' does not support session resume — starting new session`);
       effectiveSessionId = null;
       if (sessionMeta) sessionMeta.sessionId = null;
     }
 
     // Build provider-specific spawn config (workspaceDir now defined above)
     // Pass tool definitions for non-Claude providers with agentic support
-    const tools = (this.provider.supportsAgentic() && this.provider.name !== 'claude')
+    const tools = (activeProvider.supportsAgentic() && activeProvider.name !== 'claude')
       ? getToolDefinitions()
       : undefined;
 
-    const spawnConfig = this.provider.buildArgs({
+    const spawnConfig = activeProvider.buildArgs({
       message: safeMessage,
       systemPrompt,
       model: selectedModel,
@@ -1776,10 +1847,11 @@ class AgentExecutor {
       maxTurns,
       images,
       workspaceDir,
-      tools
+      tools,
+      apiKeyOverride: options.apiKeyOverride || null
     });
 
-    this.logger.info('AgentExecutor', `Executing ${this.provider.name} for workspace ${effectiveWorkspaceId}`, { requestId });
+    this.logger.info('AgentExecutor', `Executing ${activeProvider.name} for workspace ${effectiveWorkspaceId}`, { requestId });
 
     // PERFORMANCE PROFILING: Record context assembly time (roadmap 10.3)
     const contextAssemblyTime = Date.now() - contextAssemblyStart;
@@ -1814,12 +1886,12 @@ class AgentExecutor {
       cleanEnv.OPENAI_API_KEY = options.apiKeyOverride; // Also set for OpenAI provider
     }
 
-    const spawnResult = this.provider.spawnProcess(spawnConfig, workspaceDir, cleanEnv);
+    const spawnResult = activeProvider.spawnProcess(spawnConfig, workspaceDir, cleanEnv);
     const claudeProcess = spawnResult.process;
 
     if (!claudeProcess.stdout || !claudeProcess.stderr) {
-      this.logger.error('AgentExecutor', `Failed to spawn ${this.provider.name} process (stdout/stderr null)`);
-      const error = new Error(`Failed to spawn ${this.provider.name} process`);
+      this.logger.error('AgentExecutor', `Failed to spawn ${activeProvider.name} process (stdout/stderr null)`);
+      const error = new Error(`Failed to spawn ${activeProvider.name} process`);
       if (requestId && requestTracer) {
         requestTracer.endTrace(requestId, 'error');
       }

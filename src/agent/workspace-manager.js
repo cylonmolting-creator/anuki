@@ -434,6 +434,25 @@ class WorkspaceManager {
       }
     }
 
+    // Hook propagation: symlink project's .claude/settings.json to agent sandbox
+    // Ensures all agents run with the same enforcement hooks as the main project
+    if (cwdOverride && id !== 'master') {
+      const resolvedCwd = cwdOverride.replace(/^~/, process.env.HOME);
+      const baseDir = require('../utils/base-dir');
+      const agentClaudeDir = path.join(resolvedCwd, '.claude');
+      const projectSettings = path.join(baseDir, '.claude', 'settings.json');
+      const agentSettings = path.join(agentClaudeDir, 'settings.json');
+      try {
+        if (fs.existsSync(projectSettings) && !fs.existsSync(agentSettings)) {
+          fs.mkdirSync(agentClaudeDir, { recursive: true });
+          fs.symlinkSync(projectSettings, agentSettings);
+          this.logger.info('WorkspaceManager', `[HOOKS] Propagated hook settings to ${resolvedCwd}`);
+        }
+      } catch (e) {
+        this.logger.warn('WorkspaceManager', `[HOOKS] Failed to propagate hooks to ${resolvedCwd}: ${e.message}`);
+      }
+    }
+
     const workspace = {
       id,
       name,
