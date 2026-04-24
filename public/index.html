@@ -1171,7 +1171,7 @@
 
         case 'ping':
           if (ws && ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ type: 'pong' }));
+            ws.send(JSON.stringify({ type: 'pong', timestamp: data.timestamp || Date.now() }));
           }
           break;
 
